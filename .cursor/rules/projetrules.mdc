@@ -1,0 +1,15 @@
+---
+description : documentation
+alwaysApply: true
+---
+Tu dois toujours documenter le projets dans /docs
+les docs doivent decritre le focntionnement de la feature 
+tu feras a chaque fois un sommaire 
+
+---
+description : script et utilisation
+alwaysApply: true
+---
+Tous les script que tu fais seron lancer depuis le front donc a la fin de creation du script tu me donnera la ligne par exemple : 
+http://localhost:8888/scripts/init_database.php qui est la ligen pour le script init_database.php.
+Dans la creation fais en sorte que le script soit visuellement beau car il sera execute sur le front
