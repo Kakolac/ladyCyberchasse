@@ -3,11 +3,14 @@ session_start();
 require_once '../config/connexion.php';
 require_once '../config/env.php';
 
+// Vérification des droits d'administration
+if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
+    header('Location: ../login.php');
+    exit();
+}
+
 // Récupération de l'URL du site depuis l'environnement
 $siteUrl = env('URL_SITE', 'http://127.0.0.1:8888');
-
-// Vérification de l'authentification (pour l'instant, on laisse ouvert pour les tests)
-// TODO: Ajouter une authentification admin sécurisée
 
 // Récupération des parcours avec toutes les informations
 $stmt = $pdo->query("
@@ -87,138 +90,133 @@ if ($equipe_filter || $lieu_filter) {
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Génération des QR Codes - Cyberchasse</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../styles/style.css">
-    <style>
-        .admin-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 2rem 0;
-            margin-bottom: 2rem;
-        }
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            margin-bottom: 1.5rem;
-        }
-        .card-header {
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            color: white;
-            border-radius: 15px 15px 0 0 !important;
-            border: none;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 0.75rem 1.5rem;
-        }
-        .btn-warning {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 0.5rem 1rem;
-        }
-        .btn-success {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            border: none;
-            border-radius: 10px;
-            padding: 0.5rem 1rem;
-        }
-        .qr-container {
-            text-align: center;
-            padding: 1rem;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin: 1rem 0;
-        }
-        .qr-code {
-            margin: 1rem auto;
-            padding: 1rem;
-            background: white;
-            border-radius: 10px;
-            display: inline-block;
-        }
-        .qr-code img {
-            border: 2px solid #e5e7eb;
-            border-radius: 10px;
-            max-width: 100%;
-            height: auto;
-        }
-        .token-info {
-            background: #f8fafc;
-            padding: 1rem;
-            border-radius: 10px;
-            margin: 1rem 0;
-            font-family: monospace;
-            font-size: 0.9rem;
-        }
-        .url-info {
-            background: #e0f2fe;
-            padding: 1rem;
-            border-radius: 10px;
-            margin: 1rem 0;
-            font-family: monospace;
-            font-size: 0.9rem;
-            word-break: break-all;
-        }
-        .equipe-badge {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 500;
-            color: white;
-        }
-        .filters-section {
-            background: #f8fafc;
-            padding: 1.5rem;
-            border-radius: 15px;
-            margin-bottom: 2rem;
-        }
-        .print-section {
-            background: #e0f2fe;
-            padding: 1rem;
-            border-radius: 10px;
-            margin: 1rem 0;
-            text-align: center;
-        }
-        .qr-actions {
-            margin-top: 1rem;
-        }
-        .qr-actions .btn {
-            margin: 0.25rem;
-        }
-        @media print {
-            .no-print { display: none !important; }
-            .qr-container { page-break-inside: avoid; }
-            .qr-code img { max-width: 200px !important; }
-        }
-    </style>
-</head>
-<body>
-    <div class="admin-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h1 class="mb-0">🎯 Génération des QR Codes</h1>
-                    <p class="mb-0 mt-2">Générez et imprimez les QR codes pour chaque parcours</p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <a href="parcours.php" class="btn btn-outline-light">← Retour aux parcours</a>
-                </div>
+<?php
+// Définir le titre de la page pour le header
+$page_title = "Génération des QR Codes";
+$breadcrumb_items = [
+    ['url' => 'admin.php', 'text' => 'Administration', 'active' => false],
+    ['url' => '#', 'text' => 'Génération QR Codes', 'active' => true]
+];
+
+// Inclure le header commun
+include 'includes/header.php';
+?>
+
+<!-- Styles CSS spécifiques à cette page -->
+<style>
+    .card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    .card-header {
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        color: white;
+        border-radius: 15px 15px 0 0 !important;
+        border: none;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+    }
+    .btn-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        border: none;
+        border-radius: 10px;
+        padding: 0.5rem 1rem;
+    }
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        border-radius: 10px;
+        padding: 0.5rem 1rem;
+    }
+    .qr-container {
+        text-align: center;
+        padding: 1rem;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin: 1rem 0;
+    }
+    .qr-code {
+        margin: 1rem auto;
+        padding: 1rem;
+        background: white;
+        border-radius: 10px;
+        display: inline-block;
+    }
+    .qr-code img {
+        border: 2px solid #e5e7eb;
+        border-radius: 10px;
+        max-width: 100%;
+        height: auto;
+    }
+    .token-info {
+        background: #f8fafc;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+    .url-info {
+        background: #e0f2fe;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        font-family: monospace;
+        font-size: 0.9rem;
+        word-break: break-all;
+    }
+    .equipe-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 500;
+        color: white;
+    }
+    .filters-section {
+        background: #f8fafc;
+        padding: 1.5rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .print-section {
+        background: #e0f2fe;
+        padding: 1rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+        text-align: center;
+    }
+    .qr-actions {
+        margin-top: 1rem;
+    }
+    .qr-actions .btn {
+        margin: 0.25rem;
+    }
+    @media print {
+        .no-print { display: none !important; }
+        .qr-container { page-break-inside: avoid; }
+        .qr-code img { max-width: 200px !important; }
+    }
+</style>
+
+<!-- Titre de la page -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header text-center">
+                <h1 class="mb-0">
+                    <i class="fas fa-qrcode"></i> Génération des QR Codes
+                </h1>
+                <p class="mb-0 mt-2">Générez et imprimez les QR codes pour chaque parcours</p>
             </div>
         </div>
     </div>
+</div>
 
     <div class="container">
         <?php if (isset($success_message)): ?>
@@ -339,7 +337,6 @@ if ($equipe_filter || $lieu_filter) {
         <?php endif; ?>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Fonction d'impression individuelle
         function printSingleQR(parcourId) {
@@ -391,5 +388,8 @@ if ($equipe_filter || $lieu_filter) {
             printWindow.print();
         }
     </script>
-</body>
-</html>
+
+<?php
+// Inclure le footer commun
+include 'includes/footer.php';
+?>
