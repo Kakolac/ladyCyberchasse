@@ -173,10 +173,19 @@ include 'includes/header.php';
         word-break: break-all;
     }
     .equipe-badge {
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-weight: 500;
+        padding: 0.75rem 1.5rem;
+        border-radius: 25px;
+        font-weight: 700;
         color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        margin-bottom: 1rem;
+        display: inline-block;
+        font-size: 1.2rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border: 2px solid rgba(255,255,255,0.3);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        min-width: 120px;
     }
     .filters-section {
         background: #f8fafc;
@@ -289,8 +298,26 @@ include 'includes/header.php';
                 <?php foreach ($parcours as $parcour): ?>
                     <div class="col-md-6 col-lg-4 mb-4">
                         <div class="qr-container">
-                            <div class="equipe-badge" style="background-color: <?php echo $parcour['equipe_couleur']; ?>;">
-                                <?php echo htmlspecialchars($parcour['equipe_nom']); ?>
+                            <?php
+                            // Définir une couleur par défaut si aucune couleur n'est définie
+                            $couleur_equipe = !empty($parcour['equipe_couleur']) ? $parcour['equipe_couleur'] : '#007bff';
+                            
+                            // Définir la couleur du texte selon la luminosité de l'arrière-plan
+                            $is_light = false;
+                            if (strpos($couleur_equipe, '#fff') !== false || 
+                                strpos($couleur_equipe, 'white') !== false || 
+                                strpos($couleur_equipe, '#ffffff') !== false ||
+                                strpos($couleur_equipe, '#f0f0f0') !== false ||
+                                strpos($couleur_equipe, '#e0e0e0') !== false) {
+                                $is_light = true;
+                            }
+                            
+                            $text_color = $is_light ? '#333' : 'white';
+                            $text_shadow = $is_light ? 'none' : '2px 2px 4px rgba(0,0,0,0.5)';
+                            $border_color = $is_light ? '#333' : 'rgba(255,255,255,0.3)';
+                            ?>
+                            <div class="equipe-badge" style="background-color: <?php echo $couleur_equipe; ?>; color: <?php echo $text_color; ?>; text-shadow: <?php echo $text_shadow; ?>; border-color: <?php echo $border_color; ?>;">
+                                <strong><?php echo htmlspecialchars($parcour['equipe_nom']); ?></strong>
                             </div>
                             
                             <h5 class="mt-3"><?php echo htmlspecialchars($parcour['lieu_nom']); ?></h5>
