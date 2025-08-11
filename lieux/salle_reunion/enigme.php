@@ -5,6 +5,16 @@ if (!isset($_SESSION['team_name'])) {
     exit();
 }
 
+require_once '../../config/connexion.php';
+
+// Récupération de l'énigme depuis la base de données
+$stmt = $pdo->prepare("SELECT enigme_texte, options_enigme FROM lieux WHERE slug = 'salle_reunion'");
+$stmt->execute();
+$lieu = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$enigme_texte = $lieu['enigme_texte'] ?? 'Énigme en cours de configuration...';
+$options = json_decode($lieu['options_enigme'] ?? '{}', true);
+
 include '../../includes/header.php';
 ?>
 
@@ -23,43 +33,33 @@ include '../../includes/header.php';
                     
                     <div class='enigme-content'>
                         <h4>🎯 Question principale</h4>
-                        <p class='lead'>Quelle est la <strong>BONNE</strong> pratique de cybersécurité ?</p>
+                        <p class='lead'><?php echo htmlspecialchars($enigme_texte); ?></p>
                         
                         <div class='options mt-4'>
-                            <div class='form-check mb-3'>
-                                <input class='form-check-input' type='radio' name='answer' id='option1' value='A'>
-                                <label class='form-check-label' for='option1'>
-                                    <strong>A)</strong> Partager ses mots de passe avec ses amis de confiance.
-                                </label>
-                            </div>
-                            
-                            <div class='form-check mb-3'>
-                                <input class='form-check-input' type='radio' name='answer' id='option2' value='B'>
-                                <label class='form-check-label' for='option2'>
-                                    <strong>B)</strong> Installer les mises à jour de sécurité dès qu'elles sont disponibles.
-                                </label>
-                            </div>
-                            
-                            <div class='form-check mb-3'>
-                                <input class='form-check-input' type='radio' name='answer' id='option3' value='C'>
-                                <label class='form-check-label' for='option3'>
-                                    <strong>C)</strong> Cliquer sur tous les liens reçus par email.
-                                </label>
-                            </div>
-                            
-                            <div class='form-check mb-3'>
-                                <input class='form-check-input' type='radio' name='answer' id='option4' value='D'>
-                                <label class='form-check-label' for='option4'>
-                                    <strong>D)</strong> Désactiver l'antivirus pour améliorer les performances.
-                                </label>
-                            </div>
+                            <?php if ($options && count($options) > 0): ?>
+                                <?php foreach ($options as $key => $option): ?>
+                                    <div class='form-check mb-3'>
+                                        <input class='form-check-input' type='radio' name='answer' id='option<?php echo $key; ?>' value='<?php echo $key; ?>'>
+                                        <label class='form-check-label' for='option<?php echo $key; ?>'>
+                                            <strong><?php echo $key; ?>)</strong> <?php echo htmlspecialchars($option); ?>
+                                        </label>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <div class='alert alert-warning'>
+                                    <i class='fas fa-exclamation-triangle'></i>
+                                    Cette énigme n'est pas encore configurée. Contactez l'administrateur.
+                                </div>
+                            <?php endif; ?>
                         </div>
                         
-                        <div class='text-center mt-4'>
-                            <button type='button' class='btn btn-secondary btn-lg' onclick='validateAnswer()'>
-                                ✅ Valider ma réponse
-                            </button>
-                        </div>
+                        <?php if ($options && count($options) > 0): ?>
+                            <div class='text-center mt-4'>
+                                <button type='button' class='btn btn-secondary btn-lg' onclick='validateAnswer()'>
+                                    ✅ Valider ma réponse
+                                </button>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -72,32 +72,61 @@ function validateAnswer() {
     const selectedAnswer = document.querySelector('input[name="answer"]:checked');
     
     if (!selectedAnswer) {
-        alert('⚠️ Veuillez sélectionner une réponse avant de valider.');
+        Swal.fire({
+            title: '⚠️ Attention',
+            text: 'Veuillez sélectionner une réponse avant de valider.',
+            icon: 'warning',
+            confirmButtonText: 'OK'
+        });
         return;
     }
     
     const answer = selectedAnswer.value;
     
-    // La réponse correcte est B (installer les mises à jour)
-    if (answer === 'B') {
-        saveProgress('salle_reunion', true);
-        
+    // Envoi de la réponse au serveur pour validation SÉCURISÉE
+    fetch('../../validation_enigme.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            lieu: 'salle_reunion',
+            reponse: answer
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.correct) {
+            // Réponse correcte
+            saveProgress('salle_reunion', true);
+            
+            Swal.fire({
+                title: '🎉 Bravo !',
+                text: 'Vous avez résolu l\'énigme !',
+                icon: 'success',
+                confirmButtonText: 'Continuer l\'aventure'
+            }).then((result) => {
+                window.location.href = '../accueil/';
+            });
+        } else {
+            // Réponse incorrecte
+            Swal.fire({
+                title: '❌ Réponse incorrecte',
+                text: data.message || 'Réfléchissez et réessayez...',
+                icon: 'error',
+                confirmButtonText: 'Réessayer'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
         Swal.fire({
-            title: '🎉 Bravo !',
-            text: 'Vous avez résolu l\'énigme ! Les mises à jour de sécurité sont essentielles.',
-            icon: 'success',
-            confirmButtonText: 'Continuer l\'aventure'
-        }).then((result) => {
-            window.location.href = '../accueil/';
-        });
-    } else {
-        Swal.fire({
-            title: '❌ Réponse incorrecte',
-            text: 'Réfléchissez aux bonnes pratiques de cybersécurité...',
+            title: '❌ Erreur',
+            text: 'Une erreur est survenue. Veuillez réessayer.',
             icon: 'error',
-            confirmButtonText: 'Réessayer'
+            confirmButtonText: 'OK'
         });
-    }
+    });
 }
 
 function saveProgress(lieu, success) {
