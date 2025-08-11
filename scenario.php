@@ -5,14 +5,15 @@ if (!isset($_SESSION['team_name'])) {
     exit();
 }
 
-// Vérification du timeout
-if (isset($_SESSION['start_time'])) {
-    $elapsed_time = time() - $_SESSION['start_time'];
-    if ($elapsed_time > 720) { // 12 minutes en secondes
-        header('Location: timeout.php');
-        exit();
-    }
-}
+// Supprimer la vérification du timeout
+// if (isset($_SESSION['start_time'])) {
+//     $elapsed_time = time() - $_SESSION['start_time'];
+//     if ($elapsed_time > 720) { // 12 minutes en secondes
+//         header('Location: timeout.php');
+//         exit();
+//     }
+// }
+
 include 'includes/header.php';
 ?>
 

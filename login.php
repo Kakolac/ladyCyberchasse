@@ -27,7 +27,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Connexion réussie
                 $_SESSION['team_name'] = $team['teamName'];
                 $_SESSION['team_id'] = $team['id'];
-                $_SESSION['start_time'] = time();
                 
                 // Log de connexion (optionnel)
                 error_log("Connexion réussie pour l'équipe: " . $team['teamName']);

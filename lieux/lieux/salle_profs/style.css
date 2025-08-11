@@ -1,0 +1,9 @@
+/* Styles spécifiques à salle_profs */
+.card-header {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+}
+
+.container {
+    padding: 20px;
+}

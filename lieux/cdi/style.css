@@ -1,0 +1,61 @@
+/* Styles spécifiques au CDI */
+.card-header.bg-success {
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+    border-left: 4px solid #17a2b8;
+}
+
+.options .form-check {
+    padding: 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.options .form-check:hover {
+    border-color: #28a745;
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+.options .form-check-input:checked + .form-check-label {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.progress {
+    height: 25px;
+    border-radius: 15px;
+}
+
+.progress-bar {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border-radius: 15px;
+}
+
+/* Animation pour les options */
+.form-check {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.form-check:nth-child(1) { animation-delay: 0.1s; }
+.form-check:nth-child(2) { animation-delay: 0.2s; }
+.form-check:nth-child(3) { animation-delay: 0.3s; }
+.form-check:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+```
+

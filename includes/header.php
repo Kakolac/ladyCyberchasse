@@ -1,3 +1,8 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -12,6 +17,14 @@
 </head>
 <body>
     <header class="bg-header">
-        <h1>Bienvenue à la Cyberchasse</h1>
+        <div class="header-content">
+            <h1>Bienvenue à la Cyberchasse</h1>
+            <?php if (isset($_SESSION['team_name'])): ?>
+                <div class="user-info">
+                    <span class="team-name">Équipe: <?php echo htmlspecialchars($_SESSION['team_name']); ?></span>
+                    <a href="logout.php" class="logout-btn">Déconnexion</a>
+                </div>
+            <?php endif; ?>
+        </div>
     </header>
     <div class="container">
