@@ -1,8 +1,10 @@
 <?php
-$host = 'localhost';
-$dbname = 'cyberchasse';
-$username = 'root';
-$password = 'root'; // Mot de passe par défaut de MAMP
+require_once 'env.php';
+
+$host = env('DB_HOST', 'localhost');
+$dbname = env('DB_NAME', 'cyberchasse');
+$username = env('DB_USER', 'root');
+$password = env('DB_PASS', 'root');
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
