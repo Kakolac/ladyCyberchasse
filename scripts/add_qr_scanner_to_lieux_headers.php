@@ -10,9 +10,42 @@ $lieuxDir = $baseDir . '/lieux';
 
 // Composant QR scanner à ajouter dans la section user-info
 $qrScannerComponent = '
-                    <button id="qrScannerBtn" class="btn btn-outline-light me-2" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px;">
+                    <button id="qrScannerBtn" class="qr-scanner-btn">
                         📷 Scanner QR
                     </button>
+';
+
+// Style CSS personnalisé pour le bouton QR scanner
+$qrScannerCSS = '
+    <style>
+        .qr-scanner-btn {
+            background-color: rgba(0, 123, 255, 0.9) !important;
+            color: white !important;
+            border: 2px solid rgba(0, 123, 255, 0.9) !important;
+            padding: 8px 20px !important;
+            border-radius: 25px !important;
+            font-weight: 500 !important;
+            font-size: 1rem !important;
+            cursor: pointer !important;
+            transition: all 0.3s ease !important;
+            display: inline-block !important;
+            text-decoration: none !important;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3) !important;
+        }
+        
+        .qr-scanner-btn:hover {
+            background-color: rgba(0, 123, 255, 1) !important;
+            color: white !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4) !important;
+            text-decoration: none !important;
+        }
+        
+        .qr-scanner-btn:active {
+            transform: translateY(0) !important;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3) !important;
+        }
+    </style>
 ';
 
 // Composant QR scanner overlay à ajouter avant la fermeture de </body>
@@ -478,7 +511,7 @@ echo "<!DOCTYPE html>
             <div class='card-body'>
                 <div class='alert alert-info'>
                     <h5>🎯 Objectif</h5>
-                    <p>Ajouter automatiquement le composant QR scanner dans la section user-info existante de chaque lieu, à côté du bouton de déconnexion.</p>
+                    <p>Ajouter automatiquement le composant QR scanner dans la section user-info existante de chaque lieu, à côté du bouton de déconnexion, avec le même style que le header de direction. Le script peut aussi corriger les composants mal positionnés.</p>
                 </div>
                 
                 <div class='progress mb-4'>
@@ -517,12 +550,70 @@ foreach ($lieux as $lieu) {
         
         // Vérifier si le composant QR est déjà présent
         if (strpos($headerContent, 'qrScannerBtn') !== false) {
-            echo "<span class='info'>ℹ️ Composant QR déjà présent</span>";
+            // Vérifier si le composant QR est mal positionné (dans une navigation au lieu de user-info)
+            if (strpos($headerContent, '<nav') !== false && strpos($headerContent, 'qrScannerBtn') !== false) {
+                echo "<span class='warning'>⚠️ Composant QR mal positionné (dans navigation), correction en cours...</span>";
+                
+                // Nettoyer le composant mal positionné et le remettre au bon endroit
+                $updatedContent = $headerContent;
+                
+                // 1. Supprimer la navigation Bootstrap avec le bouton QR
+                $updatedContent = preg_replace('/<nav class="navbar.*?<\/nav>/s', '', $updatedContent);
+                
+                // 2. Ajouter le CSS personnalisé dans le head
+                if (strpos($updatedContent, '</head>') !== false) {
+                    $updatedContent = str_replace(
+                        '</head>',
+                        $qrScannerCSS . "\n</head>",
+                        $updatedContent
+                    );
+                }
+                
+                // 3. Ajouter le bouton QR dans la section user-info existante
+                if (preg_match('/(<div class="user-info">.*?<span class="team-name">.*?<\/span>)/s', $updatedContent, $matches)) {
+                    $userInfoStart = $matches[1];
+                    $updatedContent = str_replace(
+                        $userInfoStart,
+                        $userInfoStart . "\n                    " . $qrScannerComponent,
+                        $updatedContent
+                    );
+                }
+                
+                // 4. Ajouter le composant overlay avant </body>
+                if (strpos($updatedContent, '</body>') !== false) {
+                    $updatedContent = str_replace(
+                        '</body>',
+                        $qrScannerOverlay . "\n</body>",
+                        $updatedContent
+                    );
+                } else {
+                    $updatedContent .= $qrScannerOverlay;
+                }
+                
+                // Sauvegarder le fichier corrigé
+                if (file_put_contents($headerFile, $updatedContent)) {
+                    echo "<span class='success'>✅ Composant QR corrigé et repositionné dans user-info</span>";
+                    $updatedCount++;
+                } else {
+                    echo "<span class='error'>❌ Erreur lors de la correction</span>";
+                }
+            } else {
+                echo "<span class='info'>ℹ️ Composant QR déjà présent et bien positionné</span>";
+            }
         } else {
             // Ajouter le bouton QR dans la section user-info existante
             $updatedContent = $headerContent;
             
-            // Chercher la section user-info et ajouter le bouton QR avant le bouton de déconnexion
+            // 1. Ajouter le CSS personnalisé dans le head
+            if (strpos($updatedContent, '</head>') !== false) {
+                $updatedContent = str_replace(
+                    '</head>',
+                    $qrScannerCSS . "\n</head>",
+                    $updatedContent
+                );
+            }
+            
+            // 2. Chercher la section user-info et ajouter le bouton QR avant le bouton de déconnexion
             if (preg_match('/(<div class="user-info">.*?<span class="team-name">.*?<\/span>)/s', $updatedContent, $matches)) {
                 $userInfoStart = $matches[1];
                 $updatedContent = str_replace(
@@ -531,7 +622,7 @@ foreach ($lieux as $lieu) {
                     $updatedContent
                 );
                 
-                // Ajouter le composant overlay avant </body>
+                // 3. Ajouter le composant overlay avant </body>
                 if (strpos($updatedContent, '</body>') !== false) {
                     $updatedContent = str_replace(
                         '</body>',
@@ -619,18 +710,18 @@ echo "<div class='card mt-4'>
             <div class='alert alert-success'>
                 <h4>🎉 Opération terminée !</h4>
                 <p><strong>$updatedCount</strong> headers ont été mis à jour avec le composant QR scanner.</p>
-                <p>Le composant QR scanner est maintenant intégré dans la section user-info de chaque lieu, à côté du bouton de déconnexion.</p>
+                <p>Le composant QR scanner est maintenant intégré dans la section user-info de chaque lieu, avec le même style que le header de direction.</p>
             </div>
             
             <div class='row'>
                 <div class='col-md-6'>
                     <h5>✅ Fonctionnalités ajoutées</h5>
                     <ul>
-                        <li>Bouton scanner QR dans user-info</li>
+                        <li>Bouton scanner QR dans user-info (style bleu visible)</li>
+                        <li>CSS personnalisé avec effets hover</li>
                         <li>Interface de scan optimisée mobile</li>
                         <li>Détection intelligente des lieux</li>
                         <li>Navigation automatique corrigée</li>
-                        <li>Interface utilisateur améliorée</li>
                     </ul>
                 </div>
                 <div class='col-md-6'>
@@ -645,15 +736,16 @@ echo "<div class='card mt-4'>
             </div>
             
             <div class='alert alert-info mt-3'>
-                <h6>📍 Position du composant</h6>
-                <p>Le bouton QR scanner est maintenant positionné dans la section <code>user-info</code> de chaque lieu, à côté du bouton de déconnexion, comme demandé.</p>
+                <h6>📍 Position et style du composant</h6>
+                <p>Le bouton QR scanner est maintenant positionné dans la section <code>user-info</code> de chaque lieu, à côté du bouton de déconnexion, avec un style bleu visible et des effets hover, exactement comme sur le header de direction.</p>
             </div>
         </div>
     </div>
     
     <div class='text-center mt-4 mb-4'>
-        <a href='../lieux/accueil/' class='btn btn-primary btn-lg me-3'>🏠 Tester sur l\'accueil</a>
-        <a href='../admin/' class='btn btn-secondary btn-lg'>⚙️ Administration</a>
+        <a href='../lieux/direction/' class='btn btn-primary btn-lg me-3'>👔 Tester sur la direction</a>
+        <a href='../lieux/accueil/' class='btn btn-secondary btn-lg me-3'>🏠 Tester sur l\'accueil</a>
+        <a href='../admin/' class='btn btn-outline-light btn-lg'>⚙️ Administration</a>
     </div>
 </div>
 

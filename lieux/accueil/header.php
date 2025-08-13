@@ -14,31 +14,46 @@ if (session_status() === PHP_SESSION_NONE) {
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../../styles/style.css">
+    <style>
+        .qr-scanner-btn {
+            background-color: rgba(0, 123, 255, 0.9) !important;
+            color: white !important;
+            border: 2px solid rgba(0, 123, 255, 0.9) !important;
+            padding: 8px 20px !important;
+            border-radius: 25px !important;
+            font-weight: 500 !important;
+            font-size: 1rem !important;
+            cursor: pointer !important;
+            transition: all 0.3s ease !important;
+            display: inline-block !important;
+            text-decoration: none !important;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3) !important;
+        }
+        
+        .qr-scanner-btn:hover {
+            background-color: rgba(0, 123, 255, 1) !important;
+            color: white !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4) !important;
+            text-decoration: none !important;
+        }
+        
+        .qr-scanner-btn:active {
+            transform: translateY(0) !important;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3) !important;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
-        <div class="container">
-            <a class="navbar-brand" href="../accueil/">🏫 Cyberchasse</a>
-            <div class="navbar-nav ms-auto">
-                
-    <!-- Bouton Scanner QR Code -->
-    <button id="qrScannerBtn" class="btn btn-outline-light me-2" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px;">
-        📷 Scanner QR
-    </button>
-
-                <span class="navbar-text me-3">
-                    Équipe: <?php echo isset($_SESSION["team_name"]) ? $_SESSION["team_name"] : "Non connecté"; ?>
-                </span>
-                <a class="nav-link" href="../../logout.php">🚪 Déconnexion</a>
-            </div>
-        </div>
-    </nav>
     <header class="bg-header">
         <div class="header-content">
             <h1>Bienvenue à la Cyberchasse</h1>
             <?php if (isset($_SESSION['team_name'])): ?>
                 <div class="user-info">
                     <span class="team-name">Équipe: <?php echo htmlspecialchars($_SESSION['team_name']); ?></span>
+                    <button id="qrScannerBtn" class="qr-scanner-btn">
+                        📷 Scanner QR
+                    </button>
                     <a href="../../logout.php" class="logout-btn">Déconnexion</a>
                 </div>
             <?php endif; ?>
