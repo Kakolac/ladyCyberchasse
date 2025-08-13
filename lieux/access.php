@@ -292,6 +292,7 @@ try {
     $_SESSION['debut_session'] = time();
     
     // 7. Redirection vers le lieu avec le token de validation
+    // CORRECTION : aller vers le bon dossier
     $redirect_url = "./$lieu/?token_validation=" . urlencode($token_validation);
     header("Location: $redirect_url");
     exit();

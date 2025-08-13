@@ -35,7 +35,6 @@
             <!-- Boutons - Responsive et accessibles -->
             <div style="margin-top: 25px; display: flex; flex-direction: column; align-items: center; gap: 15px;">
                 <button id="closeCameraBtn" class="btn btn-secondary" style="min-width: 120px; padding: 12px 20px; font-size: 16px;">🔒 Fermer</button>
-                <button id="openDetectedPage" class="btn btn-primary" style="display: none; min-width: 200px; padding: 15px 25px; font-size: 16px; background: #28a745; border-color: #28a745;">🚀 Aller sur la page</button>
             </div>
         </div>
     </div>
@@ -73,9 +72,8 @@ function initQRScanner() {
     const qrScannerBtn = document.getElementById('qrScannerBtn');
     const closeScannerBtn = document.getElementById('closeScannerBtn');
     const closeCameraBtn = document.getElementById('closeCameraBtn');
-    const openDetectedPageBtn = document.getElementById('openDetectedPage');
     
-    if (!qrScannerBtn || !closeScannerBtn || !closeCameraBtn || !openDetectedPageBtn) {
+    if (!qrScannerBtn || !closeScannerBtn || !closeCameraBtn) {
         console.error('❌ Éléments manquants, réessai dans 500ms...');
         setTimeout(initQRScanner, 500);
         return;
@@ -101,13 +99,6 @@ function initQRScanner() {
         e.stopPropagation();
         console.log('📱 Bouton fermer caméra cliqué');
         closeQRScanner();
-    });
-
-    openDetectedPageBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('📱 Bouton aller sur page cliqué');
-        goToDetectedPage();
     });
 
     scannerInitialized = true;
@@ -310,7 +301,7 @@ function handleQRCode(data) {
     // Analyser l'URL pour extraire le nom du lieu
     const lieuInfo = extractLieuInfo(data);
     
-    // Afficher le résultat - CSS optimisé mobile
+    // Afficher le résultat avec un LIEN SIMPLE au lieu d'un bouton
     const resultDiv = document.getElementById('scanResult');
     resultDiv.innerHTML = `
         <div style="background: rgba(40,167,69,0.95); padding: 20px; border-radius: 15px; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
@@ -320,18 +311,29 @@ function handleQRCode(data) {
                 <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${lieuInfo.nom}</div>
                 <div style="font-size: 14px; opacity: 0.9;">${lieuInfo.description}</div>
             </div>
-            <p style="margin-bottom: 20px; font-size: 16px;">Voulez-vous vous téléporter sur ce lieu ?</p>
+            
+            <!-- LIEN CLIQUABLE DE L'URL DÉCODÉE -->
+            <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px; color: #ffd700;"> Lien direct :</div>
+                <a href="${data}" style="font-size: 14px; word-break: break-all; color: #00ff88; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; display: block; text-decoration: none; border: 1px solid #00ff88;">
+                    ${data}
+                </a>
+            </div>
+            
+            <p style="margin-bottom: 20px; font-size: 16px;">Cliquez sur le lien ci-dessous pour vous téléporter :</p>
+            
+            <!-- LIEN SIMPLE AU LIEU D'UN BOUTON -->
+            <div style="text-align: center;">
+                <a href="${data}" class="btn btn-success" style="font-size: 18px; padding: 15px 30px; text-decoration: none; display: inline-block;">
+                    🚀 Se téléporter sur le lieu
+                </a>
+            </div>
         </div>
     `;
     resultDiv.style.display = 'block';
     
-    // Afficher le bouton d'ouverture - Plus visible sur mobile
-    const openDetectedPageBtn = document.getElementById('openDetectedPage');
-    openDetectedPageBtn.style.display = 'inline-block';
-    openDetectedPageBtn.innerHTML = '🚀 Se téléporter sur le lieu';
-    
-    // Scroll vers le bouton pour qu'il soit visible
-    openDetectedPageBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Scroll vers le résultat pour qu'il soit visible
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function extractLieuInfo(url) {
@@ -388,31 +390,6 @@ function extractLieuInfo(url) {
     }
 }
 
-function goToDetectedPage() {
-    if (detectedUrl) {
-        showDebugMessage(` Téléportation vers: ${detectedUrl}`);
-        
-        // Corriger l'URL si elle contient une double adresse
-        let correctedUrl = detectedUrl;
-        
-        // Si l'URL commence par http://localhost:8888/lieux/, on la simplifie
-        if (correctedUrl.includes('/lieux/')) {
-            const urlParts = correctedUrl.split('/lieux/');
-            if (urlParts.length > 1) {
-                correctedUrl = './lieux/' + urlParts[1];
-            }
-        }
-        
-        // Si l'URL est relative et commence par lieux/, on l'ajuste
-        if (correctedUrl.startsWith('lieux/')) {
-            correctedUrl = './' + correctedUrl;
-        }
-        
-        showDebugMessage(`🔧 URL corrigée: ${correctedUrl}`);
-        window.location.href = correctedUrl;
-    }
-}
-
 function stopCamera() {
     if (qrScanner) {
         if (qrScanner.scanning) {
@@ -429,7 +406,6 @@ function stopCamera() {
     // Réinitialiser l'interface
     document.getElementById('scanIndicator').style.display = 'block';
     document.getElementById('scanResult').style.display = 'none';
-    document.getElementById('openDetectedPage').style.display = 'none';
     detectedUrl = null;
     
     showDebugMessage(' Caméra arrêtée');
