@@ -307,16 +307,20 @@ function handleQRCode(data) {
     // Masquer l'indicateur de scan
     document.getElementById('scanIndicator').style.display = 'none';
     
+    // Analyser l'URL pour extraire le nom du lieu
+    const lieuInfo = extractLieuInfo(data);
+    
     // Afficher le résultat - CSS optimisé mobile
     const resultDiv = document.getElementById('scanResult');
     resultDiv.innerHTML = `
         <div style="background: rgba(40,167,69,0.95); padding: 20px; border-radius: 15px; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
             <h4 style="margin-bottom: 15px; font-size: 20px;">🎯 QR Code détecté !</h4>
-            <p style="margin-bottom: 10px; font-size: 16px;"><strong>URL:</strong></p>
-            <div style="background: rgba(255,255,255,0.2); padding: 12px; border-radius: 8px; margin: 15px 0; word-break: break-all; font-size: 14px; line-height: 1.4;">
-                ${data}
+            <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center;">
+                <div style="font-size: 24px; margin-bottom: 10px;">${lieuInfo.icon}</div>
+                <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${lieuInfo.nom}</div>
+                <div style="font-size: 14px; opacity: 0.9;">${lieuInfo.description}</div>
             </div>
-            <p style="margin-bottom: 20px; font-size: 16px;">Voulez-vous aller sur cette page ?</p>
+            <p style="margin-bottom: 20px; font-size: 16px;">Voulez-vous vous téléporter sur ce lieu ?</p>
         </div>
     `;
     resultDiv.style.display = 'block';
@@ -324,15 +328,88 @@ function handleQRCode(data) {
     // Afficher le bouton d'ouverture - Plus visible sur mobile
     const openDetectedPageBtn = document.getElementById('openDetectedPage');
     openDetectedPageBtn.style.display = 'inline-block';
+    openDetectedPageBtn.innerHTML = '🚀 Se téléporter sur le lieu';
     
     // Scroll vers le bouton pour qu'il soit visible
     openDetectedPageBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+function extractLieuInfo(url) {
+    try {
+        // Analyser l'URL pour extraire le lieu
+        const urlObj = new URL(url);
+        const lieu = urlObj.searchParams.get('lieu');
+        
+        if (lieu) {
+            // Mapping des lieux avec leurs informations
+            const lieuxMapping = {
+                'accueil': { nom: 'Hall d\'entrée', description: 'Point de départ de la cyberchasse', icon: '🏠' },
+                'cantine': { nom: 'Cantine', description: 'Zone de restauration', icon: '🍽️' },
+                'cdi': { nom: 'CDI', description: 'Centre de Documentation et d\'Information', icon: '📚' },
+                'cour': { nom: 'Cour', description: 'Espace extérieur', icon: '🌳' },
+                'direction': { nom: 'Direction', description: 'Bureau de la direction', icon: '👔' },
+                'gymnase': { nom: 'Gymnase', description: 'Salle de sport', icon: '⚽' },
+                'infirmerie': { nom: 'Infirmerie', description: 'Zone médicale', icon: '🏥' },
+                'internat': { nom: 'Internat', description: 'Zone d\'hébergement', icon: '🏠' },
+                'labo_chimie': { nom: 'Laboratoire de Chimie', description: 'Expériences chimiques', icon: '🧪' },
+                'labo_physique': { nom: 'Laboratoire de Physique', description: 'Expériences physiques', icon: '⚡' },
+                'labo_svt': { nom: 'Laboratoire SVT', description: 'Sciences de la vie', icon: '🔬' },
+                'salle_arts': { nom: 'Salle d\'Arts', description: 'Arts plastiques', icon: '🎨' },
+                'salle_info': { nom: 'Salle Informatique', description: 'Cybersécurité et informatique', icon: '💻' },
+                'salle_langues': { nom: 'Salle de Langues', description: 'Apprentissage des langues', icon: '🌍' },
+                'salle_musique': { nom: 'Salle de Musique', description: 'Pratique musicale', icon: '🎵' },
+                'salle_profs': { nom: 'Salle des Professeurs', description: 'Espace enseignant', icon: '👨‍🏫' },
+                'salle_reunion': { nom: 'Salle de Réunion', description: 'Espace de réunion', icon: '🤝' },
+                'secretariat': { nom: 'Secrétariat', description: 'Bureau administratif', icon: '📋' },
+                'vie_scolaire': { nom: 'Vie Scolaire', description: 'Gestion des élèves', icon: '👥' },
+                'atelier_techno': { nom: 'Atelier Technologique', description: 'Technologies et innovation', icon: '' }
+            };
+            
+            const lieuInfo = lieuxMapping[lieu];
+            if (lieuInfo) {
+                return lieuInfo;
+            }
+        }
+        
+        // Fallback si le lieu n'est pas reconnu
+        return {
+            nom: 'Lieu inconnu',
+            description: 'Lieu non identifié',
+            icon: '❓'
+        };
+        
+    } catch (error) {
+        // Fallback en cas d'erreur d'URL
+        return {
+            nom: 'Lieu inconnu',
+            description: 'Erreur de lecture du QR code',
+            icon: '❓'
+        };
+    }
+}
+
 function goToDetectedPage() {
     if (detectedUrl) {
-        showDebugMessage(`🚀 Navigation vers: ${detectedUrl}`);
-        window.location.href = detectedUrl;
+        showDebugMessage(` Téléportation vers: ${detectedUrl}`);
+        
+        // Corriger l'URL si elle contient une double adresse
+        let correctedUrl = detectedUrl;
+        
+        // Si l'URL commence par http://localhost:8888/lieux/, on la simplifie
+        if (correctedUrl.includes('/lieux/')) {
+            const urlParts = correctedUrl.split('/lieux/');
+            if (urlParts.length > 1) {
+                correctedUrl = './lieux/' + urlParts[1];
+            }
+        }
+        
+        // Si l'URL est relative et commence par lieux/, on l'ajuste
+        if (correctedUrl.startsWith('lieux/')) {
+            correctedUrl = './' + correctedUrl;
+        }
+        
+        showDebugMessage(`🔧 URL corrigée: ${correctedUrl}`);
+        window.location.href = correctedUrl;
     }
 }
 

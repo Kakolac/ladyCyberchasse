@@ -1,50 +1,22 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cyberchasse - Cdi</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="../../styles/style.css">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3">
-        <div class="container">
-            <a class="navbar-brand" href="../accueil/">🏫 Cyberchasse</a>
-            <div class="navbar-nav ms-auto">
-                
-    <!-- Bouton Scanner QR Code -->
-    <button id="qrScannerBtn" class="btn btn-outline-light me-2" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px;">
-        📷 Scanner QR
-    </button>
+/**
+ * Script pour ajouter le composant QR scanner sur tous les headers des lieux
+ * Lancez depuis : http://localhost:8888/scripts/add_qr_scanner_to_lieux_headers.php
+ */
 
-                <span class="navbar-text me-3">
-                    Équipe: <?php echo isset($_SESSION["team_name"]) ? $_SESSION["team_name"] : "Non connecté"; ?>
-                </span>
-                <a class="nav-link" href="../../logout.php">🚪 Déconnexion</a>
-            </div>
-        </div>
-    </nav>
-    <header class="bg-header">
-        <div class="header-content">
-            <h1>Bienvenue à la Cyberchasse</h1>
-            <?php if (isset($_SESSION['team_name'])): ?>
-                <div class="user-info">
-                    <span class="team-name">Équipe: <?php echo htmlspecialchars($_SESSION['team_name']); ?></span>
-                    <a href="../../logout.php" class="logout-btn">Déconnexion</a>
-                </div>
-            <?php endif; ?>
-        </div>
-    </header>
-    <div class="container">
+// Configuration
+$baseDir = dirname(__DIR__);
+$lieuxDir = $baseDir . '/lieux';
+
+// Composant QR scanner à ajouter dans la section user-info
+$qrScannerComponent = '
+                    <button id="qrScannerBtn" class="btn btn-outline-light me-2" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 8px; font-size: 14px;">
+                        📷 Scanner QR
+                    </button>
+';
+
+// Composant QR scanner overlay à ajouter avant la fermeture de </body>
+$qrScannerOverlay = '
     <!-- Overlay Scanner QR Code - CSS optimisé mobile -->
     <div id="qrScannerOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; overflow-y: auto;">
         <div style="position: relative; min-height: 100vh; padding: 20px; box-sizing: border-box;">
@@ -156,7 +128,7 @@ if (session_status() === PHP_SESSION_NONE) {
         console.log("✅ Scanner QR initialisé avec succès");
         
         // Afficher un message de confirmation
-        showDebugMessage("✅ Scanner QR prêt à l'emploi");
+        showDebugMessage("✅ Scanner QR prêt à l\'emploi");
     }
 
     function showDebugMessage(message) {
@@ -247,7 +219,7 @@ if (session_status() === PHP_SESSION_NONE) {
         
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             showDebugMessage("❌ API caméra non disponible");
-            alert("Votre navigateur ne supporte pas l'accès à la caméra");
+            alert("Votre navigateur ne supporte pas l\'accès à la caméra");
             return;
         }
 
@@ -282,7 +254,7 @@ if (session_status() === PHP_SESSION_NONE) {
             } else if (err.name === "NotFoundError") {
                 alert("Aucune caméra trouvée.");
             } else {
-                alert("Erreur d'accès à la caméra: " + err.message);
+                alert("Erreur d\'accès à la caméra: " + err.message);
             }
         });
     }
@@ -305,7 +277,7 @@ if (session_status() === PHP_SESSION_NONE) {
                 return;
             }
 
-            // Créer un canvas temporaire pour l'analyse
+            // Créer un canvas temporaire pour l\'analyse
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
             canvas.width = camera.videoWidth;
@@ -314,7 +286,7 @@ if (session_status() === PHP_SESSION_NONE) {
             // Dessiner la vidéo sur le canvas
             ctx.drawImage(camera, 0, 0, camera.videoWidth, camera.videoHeight);
             
-            // Analyser l'image
+            // Analyser l\'image
             const imageData = ctx.getImageData(0, 0, camera.videoWidth, camera.videoHeight);
             
             if (typeof jsQR !== "undefined") {
@@ -346,10 +318,10 @@ if (session_status() === PHP_SESSION_NONE) {
         qrScanner.scanning = false;
         detectedUrl = data;
         
-        // Masquer l'indicateur de scan
+        // Masquer l\'indicateur de scan
         document.getElementById("scanIndicator").style.display = "none";
         
-        // Analyser l'URL pour extraire le nom du lieu
+        // Analyser l\'URL pour extraire le nom du lieu
         const lieuInfo = extractLieuInfo(data);
         
         // Afficher le résultat - CSS optimisé mobile
@@ -367,36 +339,36 @@ if (session_status() === PHP_SESSION_NONE) {
         `;
         resultDiv.style.display = "block";
         
-        // Afficher le bouton d'ouverture - Plus visible sur mobile
+        // Afficher le bouton d\'ouverture - Plus visible sur mobile
         const openDetectedPageBtn = document.getElementById("openDetectedPage");
         openDetectedPageBtn.style.display = "inline-block";
         openDetectedPageBtn.innerHTML = "🚀 Se téléporter sur le lieu";
         
-        // Scroll vers le bouton pour qu'il soit visible
+        // Scroll vers le bouton pour qu\'il soit visible
         openDetectedPageBtn.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
     function extractLieuInfo(url) {
         try {
-            // Analyser l'URL pour extraire le lieu
+            // Analyser l\'URL pour extraire le lieu
             const urlObj = new URL(url);
             const lieu = urlObj.searchParams.get("lieu");
             
             if (lieu) {
                 // Mapping des lieux avec leurs informations
                 const lieuxMapping = {
-                    "accueil": { nom: "Hall d'entrée", description: "Point de départ de la cyberchasse", icon: "🏠" },
+                    "accueil": { nom: "Hall d\'entrée", description: "Point de départ de la cyberchasse", icon: "🏠" },
                     "cantine": { nom: "Cantine", description: "Zone de restauration", icon: "🍽️" },
-                    "cdi": { nom: "CDI", description: "Centre de Documentation et d'Information", icon: "📚" },
+                    "cdi": { nom: "CDI", description: "Centre de Documentation et d\'Information", icon: "📚" },
                     "cour": { nom: "Cour", description: "Espace extérieur", icon: "🌳" },
                     "direction": { nom: "Direction", description: "Bureau de la direction", icon: "👔" },
                     "gymnase": { nom: "Gymnase", description: "Salle de sport", icon: "⚽" },
                     "infirmerie": { nom: "Infirmerie", description: "Zone médicale", icon: "🏥" },
-                    "internat": { nom: "Internat", description: "Zone d'hébergement", icon: "🏠" },
+                    "internat": { nom: "Internat", description: "Zone d\'hébergement", icon: "🏠" },
                     "labo_chimie": { nom: "Laboratoire de Chimie", description: "Expériences chimiques", icon: "🧪" },
                     "labo_physique": { nom: "Laboratoire de Physique", description: "Expériences physiques", icon: "⚡" },
                     "labo_svt": { nom: "Laboratoire SVT", description: "Sciences de la vie", icon: "🔬" },
-                    "salle_arts": { nom: "Salle d'Arts", description: "Arts plastiques", icon: "🎨" },
+                    "salle_arts": { nom: "Salle d\'Arts", description: "Arts plastiques", icon: "🎨" },
                     "salle_info": { nom: "Salle Informatique", description: "Cybersécurité et informatique", icon: "💻" },
                     "salle_langues": { nom: "Salle de Langues", description: "Apprentissage des langues", icon: "🌍" },
                     "salle_musique": { nom: "Salle de Musique", description: "Pratique musicale", icon: "🎵" },
@@ -413,7 +385,7 @@ if (session_status() === PHP_SESSION_NONE) {
                 }
             }
             
-            // Fallback si le lieu n'est pas reconnu
+            // Fallback si le lieu n\'est pas reconnu
             return {
                 nom: "Lieu inconnu",
                 description: "Lieu non identifié",
@@ -421,7 +393,7 @@ if (session_status() === PHP_SESSION_NONE) {
             };
             
         } catch (error) {
-            // Fallback en cas d'erreur d'URL
+            // Fallback en cas d\'erreur d\'URL
             return {
                 nom: "Lieu inconnu",
                 description: "Erreur de lecture du QR code",
@@ -434,10 +406,10 @@ if (session_status() === PHP_SESSION_NONE) {
         if (detectedUrl) {
             showDebugMessage(`🚀 Téléportation vers: ${detectedUrl}`);
             
-            // Corriger l'URL si elle contient une double adresse
+            // Corriger l\'URL si elle contient une double adresse
             let correctedUrl = detectedUrl;
             
-            // Si l'URL commence par http://localhost:8888/lieux/, on la simplifie
+            // Si l\'URL commence par http://localhost:8888/lieux/, on la simplifie
             if (correctedUrl.includes("/lieux/")) {
                 const urlParts = correctedUrl.split("/lieux/");
                 if (urlParts.length > 1) {
@@ -445,7 +417,7 @@ if (session_status() === PHP_SESSION_NONE) {
                 }
             }
             
-            // Si l'URL est relative et commence par lieux/, on l'ajuste
+            // Si l\'URL est relative et commence par lieux/, on l\'ajuste
             if (correctedUrl.startsWith("lieux/")) {
                 correctedUrl = "./" + correctedUrl;
             }
@@ -468,7 +440,7 @@ if (session_status() === PHP_SESSION_NONE) {
             qrScanner = null;
         }
         
-        // Réinitialiser l'interface
+        // Réinitialiser l\'interface
         document.getElementById("scanIndicator").style.display = "block";
         document.getElementById("scanResult").style.display = "none";
         document.getElementById("openDetectedPage").style.display = "none";
@@ -477,3 +449,222 @@ if (session_status() === PHP_SESSION_NONE) {
         showDebugMessage("📹 Caméra arrêtée");
     }
     </script>
+';
+
+echo "<!DOCTYPE html>
+<html lang='fr'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Ajout Scanner QR sur Headers Lieux - Cyberchasse</title>
+    <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css' rel='stylesheet'>
+    <style>
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .card { border: none; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .progress { height: 25px; border-radius: 15px; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
+        .warning { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <div class='container mt-5'>
+        <div class='card'>
+            <div class='card-header text-center'>
+                <h1>📱 Ajout du Scanner QR sur tous les Headers des Lieux</h1>
+                <p class='mb-0'>Script d\'automatisation pour intégrer le composant QR scanner dans la section user-info</p>
+            </div>
+            <div class='card-body'>
+                <div class='alert alert-info'>
+                    <h5>🎯 Objectif</h5>
+                    <p>Ajouter automatiquement le composant QR scanner dans la section user-info existante de chaque lieu, à côté du bouton de déconnexion.</p>
+                </div>
+                
+                <div class='progress mb-4'>
+                    <div id='progressBar' class='progress-bar progress-bar-striped progress-bar-animated' role='progressbar' style='width: 0%'>0%</div>
+                </div>
+            </div>
+        </div>";
+
+// Récupérer tous les dossiers de lieux
+$lieux = [];
+$dirs = scandir($lieuxDir);
+foreach ($dirs as $dir) {
+    if ($dir !== '.' && $dir !== '..' && is_dir($lieuxDir . '/' . $dir) && $dir !== 'lieux') {
+        $lieux[] = $dir;
+    }
+}
+
+$totalLieux = count($lieux);
+$updatedCount = 0;
+
+echo "<div class='card mt-4'>
+        <div class='card-header'>
+            <h3>📁 Traitement des lieux ($totalLieux trouvés)</h3>
+        </div>
+        <div class='card-body'>";
+
+foreach ($lieux as $lieu) {
+    $headerFile = $lieuxDir . '/' . $lieu . '/header.php';
+    
+    echo "<div class='card mb-3'>
+            <div class='card-body'>
+                <h5 class='card-title'>🏫 $lieu</h5>";
+    
+    if (file_exists($headerFile)) {
+        $headerContent = file_get_contents($headerFile);
+        
+        // Vérifier si le composant QR est déjà présent
+        if (strpos($headerContent, 'qrScannerBtn') !== false) {
+            echo "<span class='info'>ℹ️ Composant QR déjà présent</span>";
+        } else {
+            // Ajouter le bouton QR dans la section user-info existante
+            $updatedContent = $headerContent;
+            
+            // Chercher la section user-info et ajouter le bouton QR avant le bouton de déconnexion
+            if (preg_match('/(<div class="user-info">.*?<span class="team-name">.*?<\/span>)/s', $updatedContent, $matches)) {
+                $userInfoStart = $matches[1];
+                $updatedContent = str_replace(
+                    $userInfoStart,
+                    $userInfoStart . "\n                    " . $qrScannerComponent,
+                    $updatedContent
+                );
+                
+                // Ajouter le composant overlay avant </body>
+                if (strpos($updatedContent, '</body>') !== false) {
+                    $updatedContent = str_replace(
+                        '</body>',
+                        $qrScannerOverlay . "\n</body>",
+                        $updatedContent
+                    );
+                } else {
+                    // Si pas de </body>, ajouter à la fin
+                    $updatedContent .= $qrScannerOverlay;
+                }
+                
+                // Sauvegarder le fichier modifié
+                if (file_put_contents($headerFile, $updatedContent)) {
+                    echo "<span class='success'>✅ Composant QR ajouté dans user-info avec succès</span>";
+                    $updatedCount++;
+                } else {
+                    echo "<span class='error'>❌ Erreur lors de la sauvegarde</span>";
+                }
+            } else {
+                // Si pas de section user-info, essayer de la créer
+                if (preg_match('/(<header class="bg-header">.*?<div class="header-content">.*?<h1>.*?<\/h1>)/s', $updatedContent, $matches)) {
+                    $headerContent = $matches[1];
+                    $userInfoSection = '
+            <?php if (isset($_SESSION[\'team_name\'])): ?>
+                <div class="user-info">
+                    <span class="team-name">Équipe: <?php echo htmlspecialchars($_SESSION[\'team_name\']); ?></span>
+                    ' . $qrScannerComponent . '
+                    <a href="../../logout.php" class="logout-btn">Déconnexion</a>
+                </div>
+            <?php endif; ?>';
+                    
+                    $updatedContent = str_replace(
+                        $headerContent,
+                        $headerContent . $userInfoSection,
+                        $updatedContent
+                    );
+                    
+                    // Ajouter le composant overlay avant </body>
+                    if (strpos($updatedContent, '</body>') !== false) {
+                        $updatedContent = str_replace(
+                            '</body>',
+                            $qrScannerOverlay . "\n</body>",
+                            $updatedContent
+                        );
+                    } else {
+                        $updatedContent .= $qrScannerOverlay;
+                    }
+                    
+                    // Sauvegarder le fichier modifié
+                    if (file_put_contents($headerFile, $updatedContent)) {
+                        echo "<span class='success'>✅ Section user-info créée avec composant QR</span>";
+                        $updatedCount++;
+                    } else {
+                        echo "<span class='error'>❌ Erreur lors de la sauvegarde</span>";
+                    }
+                } else {
+                    echo "<span class='warning'>⚠️ Structure header non reconnue, ajout manuel requis</span>";
+                }
+            }
+        }
+    } else {
+        echo "<span class='warning'>⚠️ Fichier header.php non trouvé</span>";
+    }
+    
+    echo "</div></div>";
+    
+    // Mise à jour de la barre de progression
+    $progress = round((($updatedCount + 1) / $totalLieux) * 100);
+    echo "<script>
+        document.getElementById('progressBar').style.width = '$progress%';
+        document.getElementById('progressBar').textContent = '$progress%';
+    </script>";
+    
+    // Petite pause pour l'effet visuel
+    usleep(100000); // 0.1 seconde
+}
+
+echo "</div></div>";
+
+echo "<div class='card mt-4'>
+        <div class='card-header'>
+            <h3>📊 Résumé de l'opération</h3>
+        </div>
+        <div class='card-body'>
+            <div class='alert alert-success'>
+                <h4>🎉 Opération terminée !</h4>
+                <p><strong>$updatedCount</strong> headers ont été mis à jour avec le composant QR scanner.</p>
+                <p>Le composant QR scanner est maintenant intégré dans la section user-info de chaque lieu, à côté du bouton de déconnexion.</p>
+            </div>
+            
+            <div class='row'>
+                <div class='col-md-6'>
+                    <h5>✅ Fonctionnalités ajoutées</h5>
+                    <ul>
+                        <li>Bouton scanner QR dans user-info</li>
+                        <li>Interface de scan optimisée mobile</li>
+                        <li>Détection intelligente des lieux</li>
+                        <li>Navigation automatique corrigée</li>
+                        <li>Interface utilisateur améliorée</li>
+                    </ul>
+                </div>
+                <div class='col-md-6'>
+                    <h5>🎯 Utilisation</h5>
+                    <ul>
+                        <li>Cliquer sur 📷 Scanner QR dans user-info</li>
+                        <li>Pointer la caméra vers un QR code</li>
+                        <li>Confirmer la téléportation</li>
+                        <li>Navigation automatique vers le lieu</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class='alert alert-info mt-3'>
+                <h6>📍 Position du composant</h6>
+                <p>Le bouton QR scanner est maintenant positionné dans la section <code>user-info</code> de chaque lieu, à côté du bouton de déconnexion, comme demandé.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class='text-center mt-4 mb-4'>
+        <a href='../lieux/accueil/' class='btn btn-primary btn-lg me-3'>🏠 Tester sur l\'accueil</a>
+        <a href='../admin/' class='btn btn-secondary btn-lg'>⚙️ Administration</a>
+    </div>
+</div>
+
+<script>
+// Animation de la barre de progression
+document.addEventListener('DOMContentLoaded', function() {
+    const progressBar = document.getElementById('progressBar');
+    progressBar.style.transition = 'width 0.5s ease-in-out';
+});
+</script>
+
+</body>
+</html>";
+?>
