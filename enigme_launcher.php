@@ -51,13 +51,13 @@ $enigme_resolue = ($parcours && $parcours['statut'] === 'termine');
 
 // Gestion du timing pour les indices
 $enigme_start_time = null;
-$indice_start_time = null; // NOUVEAU : Timer séparé pour l'indice
+$indice_start_time = null;
 $indice_available = false;
 
 if (!$enigme_resolue && $lieu['enigme_id']) {
     // Créer des clés uniques séparées
     $enigme_session_key = "enigme_start_{$lieu['id']}_{$equipe['id']}";
-    $indice_session_key = "indice_start_{$lieu['id']}_{$equipe['id']}"; // NOUVEAU
+    $indice_session_key = "indice_start_{$lieu['id']}_{$equipe['id']}";
     
     // Vérifier s'il y a un reset de timer pour cette équipe
     $reset_detected = false;
@@ -73,7 +73,8 @@ if (!$enigme_resolue && $lieu['enigme_id']) {
     $reset_equipe_time = $stmt->fetchColumn();
     
     // Si reset détecté, supprimer les sessions et recommencer
-    if ($reset_global_time || $reset_equipe_time) {
+    if (($reset_global_time && $reset_global_time > ($_SESSION['last_reset_check'] ?? 0)) || 
+        ($reset_equipe_time && $reset_equipe_time > ($_SESSION['last_reset_check'] ?? 0))) {
         $reset_detected = true;
         
         // Supprimer toutes les clés de session liées à cette équipe et ce lieu
@@ -82,19 +83,22 @@ if (!$enigme_resolue && $lieu['enigme_id']) {
         
         // Forcer la création de nouvelles sessions avec le timestamp du reset
         $enigme_start_time = time();
-        $indice_start_time = time(); // Nouveau départ après reset
+        $indice_start_time = time();
         $_SESSION[$enigme_session_key] = $enigme_start_time;
         $_SESSION[$indice_session_key] = $indice_start_time;
         
-        // Recalculer la disponibilité de l'indice - CORRECTION ICI
-        $indice_elapsed_time = 0; // Nouveau départ
-        $indice_available = false; // Indice bloqué pendant 6 minutes
+        // Recalculer la disponibilité de l'indice
+        $indice_elapsed_time = 0;
+        $indice_available = false;
+        
+        // Marquer ce reset comme traité
+        $_SESSION['last_reset_check'] = max($reset_global_time ?: 0, $reset_equipe_time ?: 0);
         
         // Debug du reset
         error_log("RESET DETECTED - Nouveau timestamp: " . date('H:i:s', $indice_start_time));
         error_log("RESET DETECTED - Indice available: " . ($indice_available ? 'true' : 'false'));
     } else {
-        // Gestion normale des timers - PERSISTANCE CORRIGÉE
+        // Gestion normale des timers - CORRECTION PRINCIPALE
         if (!isset($_SESSION[$enigme_session_key])) {
             // Première fois qu'on lance l'énigme
             $_SESSION[$enigme_session_key] = time();
@@ -104,18 +108,19 @@ if (!$enigme_resolue && $lieu['enigme_id']) {
             $enigme_start_time = $_SESSION[$enigme_session_key];
         }
         
+        // Gestion du timer de l'indice - SÉPARÉ ET PERSISTANT
         if (!isset($_SESSION[$indice_session_key])) {
-            // Première fois qu'on lance l'indice
-            $_SESSION[$indice_session_key] = time();
-            $indice_start_time = $_SESSION[$indice_session_key];
+            // Première fois qu'on lance l'indice - DÉMARRER APRÈS 3 minutes
+            $indice_start_time = $enigme_start_time + 180; // 3 minutes après le début de l'énigme
+            $_SESSION[$indice_session_key] = $indice_start_time;
         } else {
             // L'indice a déjà commencé - RÉCUPÉRER le timestamp existant
             $indice_start_time = $_SESSION[$indice_session_key];
         }
         
-        // Calculer si l'indice est disponible (6 minutes depuis le début de l'indice)
-        $indice_elapsed_time = time() - $indice_start_time;
-        $indice_available = ($indice_elapsed_time >= 360);
+        // Calculer si l'indice est disponible (6 minutes depuis le début de l'énigme)
+        $enigme_elapsed_time = time() - $enigme_start_time;
+        $indice_available = ($enigme_elapsed_time >= 360); // 6 minutes = 360 secondes
     }
     
     // Passer les deux timers au template
@@ -123,7 +128,8 @@ if (!$enigme_resolue && $lieu['enigme_id']) {
     
     // Debug final pour vérifier
     error_log("FINAL DEBUG - Indice available: " . ($indice_available ? 'true' : 'false'));
-    error_log("FINAL DEBUG - Indice elapsed: " . $indice_elapsed_time);
+    error_log("FINAL DEBUG - Enigme elapsed: " . $enigme_elapsed_time);
+    error_log("FINAL DEBUG - Indice start time: " . date('H:i:s', $indice_start_time));
 }
 
 // Inclusion du header
@@ -181,7 +187,18 @@ include 'includes/header.php';
                                 Session indice: <?php echo isset($_SESSION[$indice_session_key]) ? date('H:i:s', $_SESSION[$indice_session_key]) : 'NULL'; ?><br>
                                 Enigme start: <?php echo date('H:i:s', $enigme_start_time); ?><br>
                                 Indice start: <?php echo date('H:i:s', $indice_start_time); ?><br>
-                                Reset détecté: <?php echo $reset_detected ? 'OUI' : 'NON'; ?>
+                                Reset détecté: <?php echo $reset_detected ? 'OUI' : 'NON'; ?><br>
+                                <strong>NOUVEAU DEBUG:</strong><br>
+                                Enigme elapsed: <?php echo isset($enigme_elapsed_time) ? $enigme_elapsed_time . ' secondes' : 'NULL'; ?><br>
+                                Indice elapsed: <?php echo isset($indice_elapsed_time) ? $indice_elapsed_time . ' secondes' : 'NULL'; ?><br>
+                                Indice available: <?php echo $indice_available ? 'OUI' : 'NON'; ?><br>
+                                Temps actuel: <?php echo date('H:i:s'); ?><br>
+                                Timestamp actuel: <?php echo time(); ?><br>
+                                <strong>CALCULS:</strong><br>
+                                Différence enigme: <?php echo time() - $enigme_start_time; ?> secondes<br>
+                                Différence indice: <?php echo time() - $indice_start_time; ?> secondes<br>
+                                Seuil 6 minutes: 360 secondes<br>
+                                Seuil 3 minutes: 180 secondes
                             </small>
                         </div>
                         
@@ -224,16 +241,24 @@ const ENIGME_RESOLUE = <?php echo $enigme_resolue ? 'true' : 'false'; ?>;
 
 // Variables pour le timing des indices
 const ENIGME_START_TIME = <?php echo $enigme_start_time ?: 'null'; ?>;
+const INDICE_START_TIME = <?php echo $indice_start_time ?: 'null'; ?>;
 const INDICE_AVAILABLE = <?php echo $indice_available ? 'true' : 'false'; ?>;
-const INDICE_DELAY = 180; // 3 minutes en secondes
 
 // Démarrer le timer seulement si l'énigme n'est pas résolue
 <?php if (!$enigme_resolue && $lieu['enigme_id']): ?>
+    // Timer principal de l'énigme (12 minutes)
     startTimer(720, 'timer');
     
-    // Démarrer le timer pour l'indice si pas encore disponible
-    if (!INDICE_AVAILABLE && ENIGME_START_TIME) {
-        startIndiceTimer();
+    // Timer pour l'indice - NE PAS REDÉMARRER SI DÉJÀ ACTIF
+    if (!INDICE_AVAILABLE && ENIGME_START_TIME && INDICE_START_TIME) {
+        // Calculer le temps restant avant que l'indice soit disponible
+        const now = Math.floor(Date.now() / 1000);
+        const indiceRemaining = INDICE_START_TIME + 180 - now; // 3 minutes après le début de l'indice
+        
+        if (indiceRemaining > 0) {
+            // Démarrer le timer de l'indice avec le temps restant
+            startIndiceTimer(indiceRemaining);
+        }
     }
 <?php endif; ?>
 </script>
