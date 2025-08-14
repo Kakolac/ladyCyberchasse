@@ -98,7 +98,7 @@ include './header.php';
                         
                         <div class='text-center'>
                             <h4> Prêt à commencer l'enquête ?</h4>
-                            <a href='enigme.php' class='btn btn-dark btn-lg'> Commencer l'énigme</a>
+                            <a href='../../enigme_launcher.php?lieu=direction' class='btn btn-dark btn-lg'> Commencer l'énigme</a>
                         </div>
                     <?php endif; ?>
                     

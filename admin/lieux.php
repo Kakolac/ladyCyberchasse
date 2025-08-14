@@ -33,18 +33,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $error_message = "Le texte de l'énigme et la réponse sont obligatoires";
             }
             break;
+            
+        // NOUVELLE ACTION : Affecter une énigme
+        case 'affecter_enigme':
+            $lieu_id = $_POST['lieu_id'];
+            $enigme_id = $_POST['enigme_id'];
+            
+            if (!empty($lieu_id) && !empty($enigme_id)) {
+                $stmt = $pdo->prepare("UPDATE lieux SET enigme_id = ? WHERE id = ?");
+                if ($stmt->execute([$enigme_id, $lieu_id])) {
+                    $success_message = "Énigme affectée au lieu avec succès !";
+                } else {
+                    $error_message = "Erreur lors de l'affectation de l'énigme";
+                }
+            } else {
+                $error_message = "Sélectionnez une énigme à affecter";
+            }
+            break;
+            
+        // NOUVELLE ACTION : Supprimer l'affectation d'énigme
+        case 'supprimer_enigme':
+            $lieu_id = $_POST['lieu_id'];
+            
+            $stmt = $pdo->prepare("UPDATE lieux SET enigme_id = NULL WHERE id = ?");
+            if ($stmt->execute([$lieu_id])) {
+                $success_message = "Affectation d'énigme supprimée avec succès !";
+            } else {
+                $error_message = "Erreur lors de la suppression de l'affectation";
+            }
+            break;
     }
 }
 
 // Récupération des lieux avec leurs énigmes
 try {
-    $stmt = $pdo->query("SELECT * FROM lieux ORDER BY ordre, nom");
+    $stmt = $pdo->query("
+        SELECT l.*, e.id as enigme_id, e.titre as enigme_titre, e.actif as enigme_active,
+               te.nom as type_nom, te.template
+        FROM lieux l 
+        LEFT JOIN enigmes e ON l.enigme_id = e.id 
+        LEFT JOIN types_enigmes te ON e.type_enigme_id = te.id
+        ORDER BY l.ordre, l.nom
+    ");
     $lieux = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     $error = "Erreur lors de la récupération des lieux: " . $e->getMessage();
 }
 
-// Configuration pour le header - CORRECTION ICI
+// Récupération des énigmes disponibles pour l'affectation
+try {
+    $stmt = $pdo->query("
+        SELECT e.id, e.titre, te.nom as type_nom, te.template
+        FROM enigmes e 
+        LEFT JOIN types_enigmes te ON e.type_enigme_id = te.id 
+        WHERE e.actif = 1
+        ORDER BY te.nom, e.titre
+    ");
+    $enigmes_disponibles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $enigmes_disponibles = [];
+}
+
+// Configuration pour le header
 $page_title = 'Gestion des Lieux - Administration Cyberchasse';
 $current_page = 'lieux';
 $breadcrumb_items = [
@@ -52,7 +102,6 @@ $breadcrumb_items = [
     ['text' => 'Gestion des Lieux', 'url' => 'lieux.php', 'active' => true]
 ];
 
-// Inclure le header
 include 'includes/header.php';
 ?>
 
@@ -80,6 +129,7 @@ include 'includes/header.php';
             .option-correct { border-left: 4px solid #28a745; background: rgba(40, 167, 69, 0.1); }
             .modal-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
             .btn-close { filter: invert(1); }
+            .enigme-status { font-size: 0.9em; }
         </style>
 
         <!-- En-tête de la page -->
@@ -89,6 +139,9 @@ include 'includes/header.php';
                 <p class="text-muted">Administrer les lieux et leurs énigmes de la cyberchasse</p>
             </div>
             <div>
+                <a href="enigmes.php" class="btn btn-info me-2">
+                    <i class="fas fa-puzzle-piece"></i> Gérer les Énigmes
+                </a>
                 <a href="admin.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Retour au tableau de bord
                 </a>
@@ -110,8 +163,8 @@ include 'includes/header.php';
                 <div class="card admin-card bg-success text-white">
                     <div class="card-body text-center">
                         <i class="fas fa-puzzle-piece fa-3x mb-3"></i>
-                        <h3><?php echo count(array_filter($lieux, function($l) { return !empty($l['enigme_texte']); })); ?></h3>
-                        <p class="mb-0">Énigmes Configurées</p>
+                        <h3><?php echo count(array_filter($lieux, function($l) { return !empty($l['enigme_id']); })); ?></h3>
+                        <p class="mb-0">Lieux avec Énigmes</p>
                     </div>
                 </div>
             </div>
@@ -182,51 +235,58 @@ include 'includes/header.php';
                                             </div>
                                         </div>
                                         
-                                        <?php if (!empty($lieu['enigme_texte'])): ?>
+                                        <?php if ($lieu['enigme_id']): ?>
+                                            <!-- Énigme affectée -->
                                             <div class="enigme-preview mb-3">
-                                                <h6><i class="fas fa-puzzle-piece text-info"></i> Énigme configurée</h6>
-                                                <p class="mb-2"><strong><?php echo htmlspecialchars($lieu['enigme_texte']); ?></strong></p>
-                                                
-                                                <?php 
-                                                $options = json_decode($lieu['options_enigme'], true);
-                                                if ($options): 
-                                                ?>
-                                                    <div class="options-preview">
-                                                        <?php foreach ($options as $key => $option): ?>
-                                                            <div class="option-item <?php echo ($key === $lieu['reponse_enigme']) ? 'option-correct' : ''; ?> p-2 mb-1 rounded">
-                                                                <small>
-                                                                    <strong><?php echo $key; ?>)</strong> 
-                                                                    <?php echo htmlspecialchars($option); ?>
-                                                                    <?php if ($key === $lieu['reponse_enigme']): ?>
-                                                                        <span class="badge bg-success">✓ Correcte</span>
-                                                                    <?php endif; ?>
-                                                                </small>
-                                                            </div>
-                                                        <?php endforeach; ?>
-                                                    </div>
-                                                <?php endif; ?>
+                                                <h6><i class="fas fa-puzzle-piece text-success"></i> Énigme affectée</h6>
+                                                <p class="mb-2"><strong><?php echo htmlspecialchars($lieu['enigme_titre']); ?></strong></p>
+                                                <div class="enigme-status">
+                                                    <span class="badge bg-info"><?php echo htmlspecialchars($lieu['type_nom']); ?></span>
+                                                    <span class="badge bg-<?php echo $lieu['enigme_active'] ? 'success' : 'secondary'; ?>">
+                                                        <?php echo $lieu['enigme_active'] ? 'Active' : 'Inactive'; ?>
+                                                    </span>
+                                                </div>
                                             </div>
                                         <?php else: ?>
+                                            <!-- Aucune énigme configurée -->
                                             <div class="alert alert-warning">
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 <strong>Aucune énigme configurée</strong>
                                                 <br>
-                                                <small>Cliquez sur "Configurer" pour ajouter une énigme</small>
+                                                <small>Cliquez sur "Affecter une énigme" pour en ajouter une</small>
                                             </div>
                                         <?php endif; ?>
                                         
-                                        <div class="d-grid">
-                                            <button type="button" class="btn btn-primary" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#editEnigmeModal"
-                                                    data-lieu-id="<?php echo $lieu['id']; ?>"
-                                                    data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
-                                                    data-reponse="<?php echo htmlspecialchars($lieu['reponse_enigme'] ?? ''); ?>"
-                                                    data-enigme="<?php echo htmlspecialchars($lieu['enigme_texte'] ?? ''); ?>"
-                                                    data-options="<?php echo htmlspecialchars($lieu['options_enigme'] ?? '{}'); ?>">
-                                                <i class="fas fa-edit"></i> 
-                                                <?php echo !empty($lieu['enigme_texte']) ? 'Modifier' : 'Configurer'; ?> l'énigme
-                                            </button>
+                                        <div class="d-flex gap-2">
+                                            <?php if ($lieu['enigme_id']): ?>
+                                                <!-- Actions pour lieu avec énigme -->
+                                                <button type="button" class="btn btn-primary btn-sm" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#affecterEnigmeModal"
+                                                        data-lieu-id="<?php echo $lieu['id']; ?>"
+                                                        data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
+                                                        data-enigme-id="<?php echo $lieu['enigme_id']; ?>">
+                                                    <i class="fas fa-edit"></i> Modifier l'énigme
+                                                </button>
+                                                
+                                                <form method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer l\'affectation de cette énigme ?')">
+                                                    <input type="hidden" name="action" value="supprimer_enigme">
+                                                    <input type="hidden" name="lieu_id" value="<?php echo $lieu['id']; ?>">
+                                                    <button type="submit" class="btn btn-warning btn-sm">
+                                                        <i class="fas fa-unlink"></i> Supprimer l'affectation
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <!-- Actions pour lieu sans énigme -->
+                                                <button type="button" class="btn btn-success btn-sm" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#affecterEnigmeModal"
+                                                        data-lieu-id="<?php echo $lieu['id']; ?>"
+                                                        data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
+                                                        data-enigme-id="">
+                                                    <i class="fas fa-plus"></i> Affecter une énigme
+                                                </button>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
@@ -238,77 +298,64 @@ include 'includes/header.php';
         </div>
     </div>
 
-    <!-- Modal d'édition d'énigme -->
-    <div class="modal fade" id="editEnigmeModal" tabindex="-1" aria-labelledby="editEnigmeModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
+    <!-- Modal d'affectation d'énigme -->
+    <div class="modal fade" id="affecterEnigmeModal" tabindex="-1" aria-labelledby="affecterEnigmeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editEnigmeModalLabel">
-                        <i class="fas fa-puzzle-piece"></i> Configuration de l'Énigme
+                    <h5 class="modal-title" id="affecterEnigmeModalLabel">
+                        <i class="fas fa-puzzle-piece"></i> Affectation d'Énigme
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form method="POST">
                     <div class="modal-body">
-                        <input type="hidden" name="action" value="update_enigme">
-                        <input type="hidden" name="lieu_id" id="editLieuId">
+                        <input type="hidden" name="action" value="affecter_enigme">
+                        <input type="hidden" name="lieu_id" id="affecterLieuId">
                         
-                        <div class="row mb-3">
-                            <div class="col-md-8">
-                                <label for="editLieuNom" class="form-label">Lieu</label>
-                                <input type="text" class="form-control" id="editLieuNom" readonly>
-                            </div>
-                            <div class="col-md-4">
-                                <label for="editReponse" class="form-label">Réponse correcte</label>
-                                <select class="form-select" name="reponse_enigme" id="editReponse" required>
-                                    <option value="A">A</option>
-                                    <option value="B">B</option>
-                                    <option value="C">C</option>
-                                    <option value="D">D</option>
-                                </select>
-                            </div>
+                        <div class="mb-3">
+                            <label class="form-label">Lieu</label>
+                            <input type="text" class="form-control" id="affecterLieuNom" readonly>
                         </div>
                         
                         <div class="mb-3">
-                            <label for="editEnigme" class="form-label">Texte de l'énigme</label>
-                            <textarea class="form-control" name="enigme_texte" id="editEnigme" rows="3" required 
-                                      placeholder="Posez votre question de cybersécurité ici..."></textarea>
+                            <label for="enigme_id" class="form-label">Sélectionner une énigme</label>
+                            <select class="form-select" name="enigme_id" id="enigme_id" required>
+                                <option value="">Choisir une énigme...</option>
+                                <?php foreach ($enigmes_disponibles as $enigme): ?>
+                                    <option value="<?php echo $enigme['id']; ?>">
+                                        <?php echo htmlspecialchars($enigme['titre']); ?> 
+                                        (<?php echo htmlspecialchars($enigme['type_nom']); ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small class="text-muted">Sélectionnez une énigme existante à affecter à ce lieu</small>
                         </div>
                         
-                        <h6 class="mb-3">Options de réponse</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="editOptionA" class="form-label">Option A</label>
-                                    <input type="text" class="form-control" name="option_a" id="editOptionA" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editOptionB" class="form-label">Option B</label>
-                                    <input type="text" class="form-control" name="option_b" id="editOptionB" required>
-                                </div>
+                        <?php if (empty($enigmes_disponibles)): ?>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Aucune énigme disponible</strong>
+                                <br>
+                                <p class="mb-0">Créez d'abord des énigmes dans la section "Énigmes" avant de pouvoir les affecter aux lieux.</p>
+                                <a href="enigmes.php" class="btn btn-primary btn-sm mt-2">
+                                    <i class="fas fa-plus"></i> Créer une énigme
+                                </a>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="editOptionC" class="form-label">Option C</label>
-                                    <input type="text" class="form-control" name="option_c" id="editOptionC" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editOptionD" class="form-label">Option D</label>
-                                    <input type="text" class="form-control" name="option_d" id="editOptionD" required>
-                                </div>
-                            </div>
-                        </div>
+                        <?php endif; ?>
                         
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
-                            <strong>Conseil :</strong> Assurez-vous que la réponse correcte correspond bien à l'option sélectionnée ci-dessus.
+                            <strong>Conseil :</strong> Vous pouvez créer de nouvelles énigmes dans la section "Énigmes" puis les affecter ici.
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> Enregistrer l'énigme
-                        </button>
+                        <?php if (!empty($enigmes_disponibles)): ?>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Affecter l'énigme
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </form>
             </div>
@@ -317,37 +364,29 @@ include 'includes/header.php';
 
     <!-- Scripts spécifiques à cette page -->
     <script>
-        // Gestion du modal d'édition d'énigme
+        // Gestion du modal d'affectation d'énigme
         document.addEventListener('DOMContentLoaded', function() {
-            const editEnigmeModal = document.getElementById('editEnigmeModal');
-            if (editEnigmeModal) {
-                editEnigmeModal.addEventListener('show.bs.modal', function (event) {
+            const affecterEnigmeModal = document.getElementById('affecterEnigmeModal');
+            if (affecterEnigmeModal) {
+                affecterEnigmeModal.addEventListener('show.bs.modal', function (event) {
                     const button = event.relatedTarget;
                     const lieuId = button.getAttribute('data-lieu-id');
                     const lieuNom = button.getAttribute('data-lieu-nom');
-                    const reponse = button.getAttribute('data-reponse');
-                    const enigme = button.getAttribute('data-enigme');
-                    const options = JSON.parse(button.getAttribute('data-options'));
+                    const enigmeId = button.getAttribute('data-enigme-id');
                     
                     // Mettre à jour le modal
-                    document.getElementById('editLieuId').value = lieuId;
-                    document.getElementById('editLieuNom').value = lieuNom;
-                    document.getElementById('editReponse').value = reponse || 'A';
-                    document.getElementById('editEnigme').value = enigme || '';
+                    document.getElementById('affecterLieuId').value = lieuId;
+                    document.getElementById('affecterLieuNom').value = lieuNom;
                     
-                    // Mettre à jour les options
-                    if (options && Object.keys(options).length > 0) {
-                        document.getElementById('editOptionA').value = options.A || '';
-                        document.getElementById('editOptionB').value = options.B || '';
-                        document.getElementById('editOptionC').value = options.C || '';
-                        document.getElementById('editOptionD').value = options.D || '';
+                    // Si une énigme est déjà affectée, la présélectionner
+                    if (enigmeId) {
+                        document.getElementById('enigme_id').value = enigmeId;
+                    } else {
+                        document.getElementById('enigme_id').value = '';
                     }
                 });
             }
         });
     </script>
 
-<?php
-// Inclure le footer
-include 'includes/footer.php';
-?>
+<?php include 'includes/footer.php'; ?>

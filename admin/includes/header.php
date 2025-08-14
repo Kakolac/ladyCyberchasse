@@ -275,6 +275,27 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                             </ul>
                         </li>
                         
+                        <!-- Gestion des lieux -->
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo $current_page === 'lieux' ? 'active' : ''; ?>" href="lieux.php">
+                                <i class="fas fa-map-marker-alt"></i> Lieux
+                            </a>
+                        </li>
+                        
+                        <!-- Gestion des types d'énigmes -->
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo $current_page === 'types_enigmes' ? 'active' : ''; ?>" href="types_enigmes.php">
+                                <i class="fas fa-puzzle-piece"></i> Types d'Énigmes
+                            </a>
+                        </li>
+                        
+                        <!-- Gestion des énigmes -->
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo $current_page === 'enigmes' ? 'active' : ''; ?>" href="enigmes.php">
+                                <i class="fas fa-question-circle"></i> Énigmes
+                            </a>
+                        </li>
+                        
 
                     </ul>
                     
