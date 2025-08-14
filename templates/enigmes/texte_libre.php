@@ -18,17 +18,65 @@ if (isset($_SESSION['team_name'])) {
     $indice_consulte = $stmt->fetchColumn() > 0;
 }
 
-// Variables pour le timing
+// Variables pour le timing - NE PAS RECRÉER
 $enigme_session_key = "enigme_start_{$lieu['id']}_{$equipe['id']}";
-$enigme_start_time = $_SESSION[$enigme_session_key] ?? time();
-$elapsed_time = time() - $enigme_start_time;
-$indice_available = ($elapsed_time >= 360); // 6 minutes
-$remaining_time = max(0, 360 - $elapsed_time); // 6 minutes
+$indice_session_key = "indice_start_{$lieu['id']}_{$equipe['id']}";
+
+// RÉCUPÉRER les valeurs de la session, ne pas les recréer
+$enigme_start_time = $_SESSION[$enigme_session_key];
+$indice_start_time = $_SESSION[$indice_session_key];
+
+// Calculer les temps écoulés
+$enigme_elapsed_time = time() - $enigme_start_time;
+$indice_elapsed_time = time() - $indice_start_time;
+
+$indice_available = ($indice_elapsed_time >= 360); // 6 minutes pour l'indice
+$remaining_time = max(0, 360 - $indice_elapsed_time); // Temps restant pour l'indice
+
+// Debug pour vérifier la persistance
+$debug_info = [
+    'enigme_start' => date('H:i:s', $enigme_start_time),
+    'indice_start' => date('H:i:s', $indice_start_time),
+    'enigme_elapsed' => gmdate('i:s', $enigme_elapsed_time),
+    'indice_elapsed' => gmdate('i:s', $indice_elapsed_time),
+    'remaining' => gmdate('i:s', $remaining_time),
+    'indice_available' => $indice_available,
+    'session_keys' => [$enigme_session_key, $indice_session_key],
+    'session_exists' => [
+        'enigme' => isset($_SESSION[$enigme_session_key]),
+        'indice' => isset($_SESSION[$indice_session_key])
+    ]
+];
 ?>
 
 <div class='enigme-content'>
     <h4>🎯 Question principale</h4>
     <p class='lead'><?php echo htmlspecialchars($donnees['question']); ?></p>
+    
+    <!-- DEBUG MOBILE - À SUPPRIMER APRÈS CORRECTION -->
+    <div class="alert alert-warning">
+        <strong>🔍 Debug Timer (Mobile):</strong><br>
+        <small>
+            Enigme start: <?php echo date('H:i:s', $enigme_start_time); ?><br>
+            Temps écoulé: <?php echo gmdate('i:s', $enigme_elapsed_time); ?><br>
+            Temps restant: <?php echo gmdate('i:s', $remaining_time); ?><br>
+            Indice dispo: <?php echo $indice_available ? '✅ OUI' : '❌ NON'; ?><br>
+            Indice consulté: <?php echo $indice_consulte ? '✅ OUI' : '❌ NON'; ?><br>
+            Session key: <?php echo $enigme_session_key; ?>
+        </small>
+    </div>
+    
+    <!-- Debug persistance -->
+    <div class="alert alert-info">
+        <strong>🔍 Debug Persistance:</strong><br>
+        <small>
+            Session ID: <?php echo session_id(); ?><br>
+            Enigme start: <?php echo date('H:i:s', $enigme_start_time); ?><br>
+            Indice start: <?php echo date('H:i:s', $indice_start_time); ?><br>
+            Temps restant: <?php echo gmdate('i:s', $remaining_time); ?><br>
+            Session keys: <?php echo implode(', ', $debug_info['session_keys']); ?>
+        </small>
+    </div>
     
     <?php if (!empty($donnees['indice'])): ?>
         <div class="indice-section mt-3">
@@ -44,7 +92,7 @@ $remaining_time = max(0, 360 - $elapsed_time); // 6 minutes
             <?php elseif ($indice_available): ?>
                 <!-- Indice disponible -->
                 <button type="button" class="btn btn-info btn-sm" onclick="consulterIndice()">
-                    <i class="fas fa-lightbulb"></i> 💡 Consulter l'indice
+                    <i class="fas fa-lightbulb"></i> Consulter l'indice
                 </button>
                 <div id="indice-content" class="mt-2" style="display: none;">
                     <div class="alert alert-info">
@@ -89,29 +137,34 @@ $remaining_time = max(0, 360 - $elapsed_time); // 6 minutes
 let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
 let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
 
-// Variables pour le timing des indices
-const ENIGME_START_TIME = <?php echo $enigme_start_time ?: 'null'; ?>;
-const INDICE_AVAILABLE = <?php echo $indice_available ? 'true' : 'false'; ?>;
-const INDICE_DELAY = 360; // 6 minutes en secondes
-
 // Fonction pour démarrer le timer de l'indice
 function startIndiceTimer() {
-    if (indiceAvailable) return;
+    // Debug mobile avec alert
+    alert('Timer démarré ! Temps restant: <?php echo gmdate('i:s', $remaining_time); ?>');
+    
+    if (indiceAvailable) {
+        alert('Indice déjà disponible, pas de timer nécessaire');
+        return;
+    }
     
     const indiceButton = document.getElementById('indice-button');
     const countdownSpan = document.getElementById('indice-countdown');
     
-    if (!indiceButton || !countdownSpan) return;
+    if (!indiceButton || !countdownSpan) {
+        alert('Éléments du timer non trouvés');
+        return;
+    }
     
     const timer = setInterval(() => {
         const now = Math.floor(Date.now() / 1000);
-        const elapsed = now - ENIGME_START_TIME;
-        const remaining = Math.max(0, 360 - elapsed); // 6 minutes
+        const elapsed = now - <?php echo $indice_start_time; ?>; // Utiliser $indice_start_time
+        const remaining = Math.max(0, 360 - elapsed);
         
         if (remaining <= 0) {
             // L'indice est maintenant disponible
             clearInterval(timer);
             indiceAvailable = true;
+            alert('💡 Indice maintenant disponible !');
             
             // Activer le bouton
             indiceButton.innerHTML = '<i class="fas fa-lightbulb"></i> 💡 Consulter l\'indice';
@@ -123,17 +176,6 @@ function startIndiceTimer() {
             const infoDiv = indiceButton.nextElementSibling;
             if (infoDiv) {
                 infoDiv.remove();
-            }
-            
-            // Afficher une notification
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    title: '💡 Indice disponible !',
-                    text: 'Vous pouvez maintenant consulter l\'indice si vous en avez besoin.',
-                    icon: 'info',
-                    timer: 3000,
-                    showConfirmButton: false
-                });
             }
         } else {
             // Mettre à jour le compte à rebours
@@ -177,13 +219,13 @@ function saveIndiceConsultation() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('Consultation d\'indice enregistrée');
+            alert('✅ Consultation d\'indice enregistrée');
         } else {
-            console.error('Erreur enregistrement indice:', data.error);
+            alert('❌ Erreur enregistrement indice: ' + data.error);
         }
     })
     .catch(error => {
-        console.error('Erreur:', error);
+        alert('❌ Erreur: ' + error);
     });
 }
 
@@ -191,12 +233,7 @@ function validateTextAnswer() {
     const reponse = document.getElementById('reponse_libre').value.trim();
     
     if (!reponse) {
-        Swal.fire({
-            title: '⚠️ Attention',
-            text: 'Veuillez saisir une réponse avant de valider.',
-            icon: 'warning',
-            confirmButtonText: 'OK'
-        });
+        alert('⚠️ Veuillez saisir une réponse avant de valider.');
         return;
     }
     
@@ -222,21 +259,10 @@ function validateTextAnswer() {
         // Mise à jour du parcours
         updateParcoursStatus(true);
         
-        Swal.fire({
-            title: '🎉 Bravo !',
-            text: 'Vous avez résolu l\'énigme !',
-            icon: 'success',
-            confirmButtonText: 'Continuer l\'aventure'
-        }).then((result) => {
-            window.location.href = 'lieux/' + LIEU_SLUG + '/';
-        });
+        alert('🎉 Bravo ! Vous avez résolu l\'énigme !');
+        window.location.href = 'lieux/' + LIEU_SLUG + '/';
     } else {
-        Swal.fire({
-            title: '❌ Réponse incorrecte',
-            text: 'Réfléchissez et réessayez...',
-            icon: 'error',
-            confirmButtonText: 'Réessayer'
-        });
+        alert('❌ Réponse incorrecte. Réfléchissez et réessayez...');
         
         // Vider le champ de réponse pour faciliter la nouvelle tentative
         document.getElementById('reponse_libre').value = '';
@@ -277,8 +303,16 @@ document.getElementById('reponse_libre').addEventListener('keypress', function(e
     }
 });
 
-// Démarrer le timer de l'indice si pas encore disponible
-if (!indiceAvailable && typeof startIndiceTimer === 'function') {
-    startIndiceTimer();
-}
+// DÉMARRAGE AUTOMATIQUE DU TIMER
+document.addEventListener('DOMContentLoaded', function() {
+    alert('Page chargée ! Vérification du timer...');
+    
+    // Démarrer le timer de l'indice si pas encore disponible
+    if (!indiceAvailable && !indiceConsulte) {
+        alert('Démarrage automatique du timer...');
+        startIndiceTimer();
+    } else {
+        alert('Timer non nécessaire ou déjà consulté');
+    }
+});
 </script>

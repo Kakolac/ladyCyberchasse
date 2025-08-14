@@ -33,6 +33,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $error_message = "Erreur lors de la suppression des indices de l'équipe";
             }
             break;
+            
+        // NOUVELLE ACTION : Reset timer des indices
+        case 'reset_indice_timer':
+            $equipe_id = $_POST['equipe_id'];
+            $equipe_nom = $_POST['equipe_nom'];
+            
+            try {
+                // Supprimer les consultations d'indices
+                $stmt = $pdo->prepare("DELETE FROM indices_consultes WHERE equipe_id = ?");
+                $stmt->execute([$equipe_id]);
+                
+                // Enregistrer le reset dans la table
+                $stmt = $pdo->prepare("INSERT INTO resets_timers (equipe_id, type_reset) VALUES (?, 'equipe')");
+                $stmt->execute([$equipe_id]);
+                
+                $success_message = "Timer des indices reseté pour l'équipe '$equipe_nom'. L'équipe peut maintenant recommencer les énigmes avec un nouveau délai de 6 minutes.";
+            } catch (Exception $e) {
+                $error_message = "Erreur lors du reset du timer: " . $e->getMessage();
+            }
+            break;
+            
+        // NOUVELLE ACTION : Reset tous les timers
+        case 'reset_all_timers':
+            try {
+                // Supprimer toutes les consultations d'indices
+                $stmt = $pdo->query("DELETE FROM indices_consultes");
+                $stmt->execute();
+                
+                // Enregistrer le reset global
+                $stmt = $pdo->prepare("INSERT INTO resets_timers (equipe_id, type_reset) VALUES (NULL, 'global')");
+                $stmt->execute();
+                
+                $success_message = "Tous les timers des indices ont été resetés. Toutes les équipes peuvent maintenant recommencer les énigmes avec un nouveau délai de 6 minutes.";
+            } catch (Exception $e) {
+                $error_message = "Erreur lors du reset global des timers: " . $e->getMessage();
+            }
+            break;
     }
 }
 
@@ -133,6 +170,14 @@ include 'includes/header.php';
                 <p class="text-muted">Analyse de l'utilisation des indices par les équipes</p>
             </div>
             <div>
+                <!-- NOUVEAU BOUTON : Reset tous les timers -->
+                <form method="POST" style="display: inline;" 
+                      onsubmit="return confirm('Êtes-vous sûr de vouloir resetter TOUS les timers des indices ? Toutes les équipes pourront recommencer les énigmes avec un nouveau délai de 6 minutes.')">
+                    <input type="hidden" name="action" value="reset_all_timers">
+                    <button type="submit" class="btn btn-warning me-2">
+                        <i class="fas fa-clock"></i> Reset Tous les Timers
+                    </button>
+                </form>
                 <a href="admin.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Retour au tableau de bord
                 </a>
@@ -214,13 +259,24 @@ include 'includes/header.php';
                                                     </span>
                                                 </td>
                                                 <td class="action-buttons">
+                                                    <!-- NOUVEAU BOUTON : Reset timer pour cette équipe -->
+                                                    <form method="POST" style="display: inline;" 
+                                                          onsubmit="return confirm('Êtes-vous sûr de vouloir resetter le timer des indices pour l\'équipe <?php echo htmlspecialchars($equipe['equipe']); ?> ? L\'équipe pourra recommencer les énigmes avec un nouveau délai de 6 minutes.')">
+                                                        <input type="hidden" name="action" value="reset_indice_timer">
+                                                        <input type="hidden" name="equipe_id" value="<?php echo $equipe['id']; ?>">
+                                                        <input type="hidden" name="equipe_nom" value="<?php echo htmlspecialchars($equipe['equipe']); ?>">
+                                                        <button type="submit" class="btn btn-info btn-sm me-1" title="Resetter le timer des indices pour cette équipe">
+                                                            <i class="fas fa-clock"></i> Reset Timer
+                                                        </button>
+                                                    </form>
+                                                    
                                                     <form method="POST" style="display: inline;" 
                                                           onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer TOUS les indices consultés par l\'équipe <?php echo htmlspecialchars($equipe['equipe']); ?> ?')">
                                                         <input type="hidden" name="action" value="reset_equipe_indices">
                                                         <input type="hidden" name="equipe_id" value="<?php echo $equipe['id']; ?>">
                                                         <input type="hidden" name="equipe_nom" value="<?php echo htmlspecialchars($equipe['equipe']); ?>">
-                                                        <button type="submit" class="btn btn-warning btn-sm" title="Reset tous les indices de cette équipe">
-                                                            <i class="fas fa-undo"></i> Reset
+                                                        <button type="submit" class="btn btn-warning btn-sm me-1" title="Supprimer tous les indices consultés par cette équipe">
+                                                            <i class="fas fa-undo"></i> Reset Indices
                                                         </button>
                                                     </form>
                                                 </td>

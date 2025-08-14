@@ -51,25 +51,79 @@ $enigme_resolue = ($parcours && $parcours['statut'] === 'termine');
 
 // Gestion du timing pour les indices
 $enigme_start_time = null;
+$indice_start_time = null; // NOUVEAU : Timer séparé pour l'indice
 $indice_available = false;
 
 if (!$enigme_resolue && $lieu['enigme_id']) {
-    // Créer une clé unique pour cette session d'énigme
+    // Créer des clés uniques séparées
     $enigme_session_key = "enigme_start_{$lieu['id']}_{$equipe['id']}";
+    $indice_session_key = "indice_start_{$lieu['id']}_{$equipe['id']}"; // NOUVEAU
     
-    // Vérifier si l'énigme a déjà commencé
-    if (!isset($_SESSION[$enigme_session_key])) {
-        // Première fois qu'on lance l'énigme
-        $_SESSION[$enigme_session_key] = time();
+    // Vérifier s'il y a un reset de timer pour cette équipe
+    $reset_detected = false;
+    
+    // Vérifier reset global
+    $stmt = $pdo->prepare("SELECT MAX(timestamp) FROM resets_timers WHERE type_reset = 'global'");
+    $stmt->execute();
+    $reset_global_time = $stmt->fetchColumn();
+    
+    // Vérifier reset spécifique à l'équipe
+    $stmt = $pdo->prepare("SELECT MAX(timestamp) FROM resets_timers WHERE equipe_id = ? AND type_reset = 'equipe'");
+    $stmt->execute([$equipe['id']]);
+    $reset_equipe_time = $stmt->fetchColumn();
+    
+    // Si reset détecté, supprimer les sessions et recommencer
+    if ($reset_global_time || $reset_equipe_time) {
+        $reset_detected = true;
+        
+        // Supprimer toutes les clés de session liées à cette équipe et ce lieu
+        unset($_SESSION[$enigme_session_key]);
+        unset($_SESSION[$indice_session_key]);
+        
+        // Forcer la création de nouvelles sessions avec le timestamp du reset
         $enigme_start_time = time();
+        $indice_start_time = time(); // Nouveau départ après reset
+        $_SESSION[$enigme_session_key] = $enigme_start_time;
+        $_SESSION[$indice_session_key] = $indice_start_time;
+        
+        // Recalculer la disponibilité de l'indice - CORRECTION ICI
+        $indice_elapsed_time = 0; // Nouveau départ
+        $indice_available = false; // Indice bloqué pendant 6 minutes
+        
+        // Debug du reset
+        error_log("RESET DETECTED - Nouveau timestamp: " . date('H:i:s', $indice_start_time));
+        error_log("RESET DETECTED - Indice available: " . ($indice_available ? 'true' : 'false'));
     } else {
-        // L'énigme a déjà commencé
-        $enigme_start_time = $_SESSION[$enigme_session_key];
+        // Gestion normale des timers - PERSISTANCE CORRIGÉE
+        if (!isset($_SESSION[$enigme_session_key])) {
+            // Première fois qu'on lance l'énigme
+            $_SESSION[$enigme_session_key] = time();
+            $enigme_start_time = $_SESSION[$enigme_session_key];
+        } else {
+            // L'énigme a déjà commencé - RÉCUPÉRER le timestamp existant
+            $enigme_start_time = $_SESSION[$enigme_session_key];
+        }
+        
+        if (!isset($_SESSION[$indice_session_key])) {
+            // Première fois qu'on lance l'indice
+            $_SESSION[$indice_session_key] = time();
+            $indice_start_time = $_SESSION[$indice_session_key];
+        } else {
+            // L'indice a déjà commencé - RÉCUPÉRER le timestamp existant
+            $indice_start_time = $_SESSION[$indice_session_key];
+        }
+        
+        // Calculer si l'indice est disponible (6 minutes depuis le début de l'indice)
+        $indice_elapsed_time = time() - $indice_start_time;
+        $indice_available = ($indice_elapsed_time >= 360);
     }
     
-    // Calculer si l'indice est disponible (6 minutes = 360 secondes)
-    $elapsed_time = time() - $enigme_start_time;
-    $indice_available = ($elapsed_time >= 360);
+    // Passer les deux timers au template
+    $enigme_elapsed_time = time() - $enigme_start_time;
+    
+    // Debug final pour vérifier
+    error_log("FINAL DEBUG - Indice available: " . ($indice_available ? 'true' : 'false'));
+    error_log("FINAL DEBUG - Indice elapsed: " . $indice_elapsed_time);
 }
 
 // Inclusion du header
@@ -111,6 +165,24 @@ include 'includes/header.php';
                         <div class='alert alert-info'>
                             <h5>🎯 Contexte</h5>
                             <p>Résolvez cette énigme de cybersécurité pour progresser dans votre mission et débloquer le prochain lieu !</p>
+                        </div>
+                        
+                        <!-- DEBUG VISIBLE - À SUPPRIMER APRÈS CORRECTION -->
+                        <div class="alert alert-warning">
+                            <strong>🔍 Debug Lanceur (Mobile):</strong><br>
+                            <small>
+                                Session ID: <?php echo session_id(); ?><br>
+                                Équipe: <?php echo $_SESSION['team_name'] ?? 'NULL'; ?><br>
+                                Lieu ID: <?php echo $lieu['id']; ?><br>
+                                Équipe ID: <?php echo $equipe['id']; ?><br>
+                                Clé session enigme: <?php echo $enigme_session_key; ?><br>
+                                Clé session indice: <?php echo $indice_session_key; ?><br>
+                                Session enigme: <?php echo isset($_SESSION[$enigme_session_key]) ? date('H:i:s', $_SESSION[$enigme_session_key]) : 'NULL'; ?><br>
+                                Session indice: <?php echo isset($_SESSION[$indice_session_key]) ? date('H:i:s', $_SESSION[$indice_session_key]) : 'NULL'; ?><br>
+                                Enigme start: <?php echo date('H:i:s', $enigme_start_time); ?><br>
+                                Indice start: <?php echo date('H:i:s', $indice_start_time); ?><br>
+                                Reset détecté: <?php echo $reset_detected ? 'OUI' : 'NON'; ?>
+                            </small>
                         </div>
                         
                         <?php
