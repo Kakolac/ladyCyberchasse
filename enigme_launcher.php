@@ -49,6 +49,29 @@ $stmt->execute([$equipe['id'], $lieu['id']]);
 $parcours = $stmt->fetch(PDO::FETCH_ASSOC);
 $enigme_resolue = ($parcours && $parcours['statut'] === 'termine');
 
+// Gestion du timing pour les indices
+$enigme_start_time = null;
+$indice_available = false;
+
+if (!$enigme_resolue && $lieu['enigme_id']) {
+    // Créer une clé unique pour cette session d'énigme
+    $enigme_session_key = "enigme_start_{$lieu['id']}_{$equipe['id']}";
+    
+    // Vérifier si l'énigme a déjà commencé
+    if (!isset($_SESSION[$enigme_session_key])) {
+        // Première fois qu'on lance l'énigme
+        $_SESSION[$enigme_session_key] = time();
+        $enigme_start_time = time();
+    } else {
+        // L'énigme a déjà commencé
+        $enigme_start_time = $_SESSION[$enigme_session_key];
+    }
+    
+    // Calculer si l'indice est disponible (6 minutes = 360 secondes)
+    $elapsed_time = time() - $enigme_start_time;
+    $indice_available = ($elapsed_time >= 360);
+}
+
 // Inclusion du header
 include 'includes/header.php';
 ?>
@@ -127,9 +150,19 @@ const LIEU_SLUG = '<?php echo $lieu_slug; ?>';
 const TEAM_NAME = '<?php echo $_SESSION["team_name"]; ?>';
 const ENIGME_RESOLUE = <?php echo $enigme_resolue ? 'true' : 'false'; ?>;
 
+// Variables pour le timing des indices
+const ENIGME_START_TIME = <?php echo $enigme_start_time ?: 'null'; ?>;
+const INDICE_AVAILABLE = <?php echo $indice_available ? 'true' : 'false'; ?>;
+const INDICE_DELAY = 180; // 3 minutes en secondes
+
 // Démarrer le timer seulement si l'énigme n'est pas résolue
 <?php if (!$enigme_resolue && $lieu['enigme_id']): ?>
     startTimer(720, 'timer');
+    
+    // Démarrer le timer pour l'indice si pas encore disponible
+    if (!INDICE_AVAILABLE && ENIGME_START_TIME) {
+        startIndiceTimer();
+    }
 <?php endif; ?>
 </script>
 

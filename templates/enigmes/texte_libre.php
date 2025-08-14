@@ -17,6 +17,13 @@ if (isset($_SESSION['team_name'])) {
     $stmt->execute([$_SESSION['team_name'], $lieu_slug, $lieu['enigme_id']]);
     $indice_consulte = $stmt->fetchColumn() > 0;
 }
+
+// Variables pour le timing
+$enigme_session_key = "enigme_start_{$lieu['id']}_{$equipe['id']}";
+$enigme_start_time = $_SESSION[$enigme_session_key] ?? time();
+$elapsed_time = time() - $enigme_start_time;
+$indice_available = ($elapsed_time >= 360); // 6 minutes
+$remaining_time = max(0, 360 - $elapsed_time); // 6 minutes
 ?>
 
 <div class='enigme-content'>
@@ -34,8 +41,8 @@ if (isset($_SESSION['team_name'])) {
                 <button type="button" class="btn btn-secondary btn-sm" disabled>
                     <i class="fas fa-check"></i> Indice consulté
                 </button>
-            <?php else: ?>
-                <!-- Bouton pour consulter l'indice -->
+            <?php elseif ($indice_available): ?>
+                <!-- Indice disponible -->
                 <button type="button" class="btn btn-info btn-sm" onclick="consulterIndice()">
                     <i class="fas fa-lightbulb"></i> 💡 Consulter l'indice
                 </button>
@@ -44,6 +51,17 @@ if (isset($_SESSION['team_name'])) {
                         <i class="fas fa-lightbulb"></i>
                         <strong>💡 Indice :</strong> <?php echo htmlspecialchars($donnees['indice']); ?>
                     </div>
+                </div>
+            <?php else: ?>
+                <!-- Indice pas encore disponible -->
+                <button type="button" class="btn btn-secondary btn-sm" disabled id="indice-button">
+                    <i class="fas fa-clock"></i> ⏳ Indice disponible dans <span id="indice-countdown"><?php echo gmdate('i:s', $remaining_time); ?></span>
+                </button>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        L'indice sera disponible après 6 minutes de réflexion
+                    </small>
                 </div>
             <?php endif; ?>
         </div>
@@ -69,9 +87,65 @@ if (isset($_SESSION['team_name'])) {
 
 <script>
 let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
+let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
+
+// Variables pour le timing des indices
+const ENIGME_START_TIME = <?php echo $enigme_start_time ?: 'null'; ?>;
+const INDICE_AVAILABLE = <?php echo $indice_available ? 'true' : 'false'; ?>;
+const INDICE_DELAY = 360; // 6 minutes en secondes
+
+// Fonction pour démarrer le timer de l'indice
+function startIndiceTimer() {
+    if (indiceAvailable) return;
+    
+    const indiceButton = document.getElementById('indice-button');
+    const countdownSpan = document.getElementById('indice-countdown');
+    
+    if (!indiceButton || !countdownSpan) return;
+    
+    const timer = setInterval(() => {
+        const now = Math.floor(Date.now() / 1000);
+        const elapsed = now - ENIGME_START_TIME;
+        const remaining = Math.max(0, 360 - elapsed); // 6 minutes
+        
+        if (remaining <= 0) {
+            // L'indice est maintenant disponible
+            clearInterval(timer);
+            indiceAvailable = true;
+            
+            // Activer le bouton
+            indiceButton.innerHTML = '<i class="fas fa-lightbulb"></i> 💡 Consulter l\'indice';
+            indiceButton.className = 'btn btn-info btn-sm';
+            indiceButton.disabled = false;
+            indiceButton.onclick = consulterIndice;
+            
+            // Supprimer le message d'info
+            const infoDiv = indiceButton.nextElementSibling;
+            if (infoDiv) {
+                infoDiv.remove();
+            }
+            
+            // Afficher une notification
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: '💡 Indice disponible !',
+                    text: 'Vous pouvez maintenant consulter l\'indice si vous en avez besoin.',
+                    icon: 'info',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            }
+        } else {
+            // Mettre à jour le compte à rebours
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            countdownSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }, 1000);
+}
 
 function consulterIndice() {
-    if (indiceConsulte) return;
+    if (indiceConsulte || !indiceAvailable) return;
     
     // Afficher l'indice
     document.getElementById('indice-content').style.display = 'block';
@@ -202,4 +276,9 @@ document.getElementById('reponse_libre').addEventListener('keypress', function(e
         validateTextAnswer();
     }
 });
+
+// Démarrer le timer de l'indice si pas encore disponible
+if (!indiceAvailable && typeof startIndiceTimer === 'function') {
+    startIndiceTimer();
+}
 </script>
