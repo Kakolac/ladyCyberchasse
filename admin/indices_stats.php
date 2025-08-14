@@ -8,6 +8,34 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     exit();
 }
 
+// Traitement des actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    switch ($_POST['action']) {
+        case 'delete_indice':
+            $indice_id = $_POST['indice_id'];
+            
+            $stmt = $pdo->prepare("DELETE FROM indices_consultes WHERE id = ?");
+            if ($stmt->execute([$indice_id])) {
+                $success_message = "Consultation d'indice supprimée avec succès !";
+            } else {
+                $error_message = "Erreur lors de la suppression de la consultation d'indice";
+            }
+            break;
+            
+        case 'reset_equipe_indices':
+            $equipe_id = $_POST['equipe_id'];
+            $equipe_nom = $_POST['equipe_nom'];
+            
+            $stmt = $pdo->prepare("DELETE FROM indices_consultes WHERE equipe_id = ?");
+            if ($stmt->execute([$equipe_id])) {
+                $success_message = "Tous les indices consultés par l'équipe '$equipe_nom' ont été supprimés !";
+            } else {
+                $error_message = "Erreur lors de la suppression des indices de l'équipe";
+            }
+            break;
+    }
+}
+
 // Récupération des statistiques des indices
 try {
     // Statistiques globales
@@ -16,7 +44,7 @@ try {
     
     // Indices par équipe
     $stmt = $pdo->query("
-        SELECT e.nom as equipe, COUNT(*) as nb_indices
+        SELECT e.id, e.nom as equipe, COUNT(*) as nb_indices
         FROM indices_consultes ic
         JOIN equipes e ON ic.equipe_id = e.id
         GROUP BY e.id, e.nom
@@ -45,9 +73,9 @@ try {
     ");
     $indices_par_enigme = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Détail des consultations récentes
+    // Détail des consultations récentes avec ID pour suppression
     $stmt = $pdo->query("
-        SELECT e.nom as equipe, l.nom as lieu, en.titre as enigme, ic.timestamp
+        SELECT ic.id, e.nom as equipe, l.nom as lieu, en.titre as enigme, ic.timestamp
         FROM indices_consultes ic
         JOIN equipes e ON ic.equipe_id = e.id
         JOIN lieux l ON ic.lieu_id = l.id
@@ -72,6 +100,21 @@ $breadcrumb_items = [
 include 'includes/header.php';
 ?>
 
+        <!-- Messages de succès/erreur -->
+        <?php if (isset($success_message)): ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <?php echo $success_message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($error_message)): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php echo $error_message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
         <!-- Styles CSS spécifiques -->
         <style>
             .admin-card { border: none; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
@@ -80,6 +123,7 @@ include 'includes/header.php';
             .modal-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
             .btn-close { filter: invert(1); }
             .table-responsive { border-radius: 10px; }
+            .action-buttons { white-space: nowrap; }
         </style>
 
         <!-- En-tête de la page -->
@@ -156,6 +200,7 @@ include 'includes/header.php';
                                             <th>Équipe</th>
                                             <th>Indices Consultés</th>
                                             <th>Pourcentage</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -167,6 +212,17 @@ include 'includes/header.php';
                                                     <span class="badge bg-info">
                                                         <?php echo round(($equipe['nb_indices'] / $total_indices) * 100, 1); ?>%
                                                     </span>
+                                                </td>
+                                                <td class="action-buttons">
+                                                    <form method="POST" style="display: inline;" 
+                                                          onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer TOUS les indices consultés par l\'équipe <?php echo htmlspecialchars($equipe['equipe']); ?> ?')">
+                                                        <input type="hidden" name="action" value="reset_equipe_indices">
+                                                        <input type="hidden" name="equipe_id" value="<?php echo $equipe['id']; ?>">
+                                                        <input type="hidden" name="equipe_nom" value="<?php echo htmlspecialchars($equipe['equipe']); ?>">
+                                                        <button type="submit" class="btn btn-warning btn-sm" title="Reset tous les indices de cette équipe">
+                                                            <i class="fas fa-undo"></i> Reset
+                                                        </button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -265,7 +321,7 @@ include 'includes/header.php';
             </div>
         </div>
 
-        <!-- Consultations récentes -->
+        <!-- Consultations récentes avec actions -->
         <div class="row">
             <div class="col-12">
                 <div class="card admin-card stats-card">
@@ -286,6 +342,7 @@ include 'includes/header.php';
                                             <th>Lieu</th>
                                             <th>Énigme</th>
                                             <th>Date/Heure</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -298,6 +355,16 @@ include 'includes/header.php';
                                                     <small class="text-muted">
                                                         <?php echo date('d/m/Y H:i', strtotime($consultation['timestamp'])); ?>
                                                     </small>
+                                                </td>
+                                                <td class="action-buttons">
+                                                    <form method="POST" style="display: inline;" 
+                                                          onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette consultation d\'indice ?')">
+                                                        <input type="hidden" name="action" value="delete_indice">
+                                                        <input type="hidden" name="indice_id" value="<?php echo $consultation['id']; ?>">
+                                                        <button type="submit" class="btn btn-danger btn-sm" title="Supprimer cette consultation d'indice">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
