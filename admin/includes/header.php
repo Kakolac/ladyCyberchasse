@@ -296,6 +296,12 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                             </a>
                         </li>
                         
+                        <!-- Statistiques des indices -->
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo $current_page === 'indices_stats' ? 'active' : ''; ?>" href="indices_stats.php">
+                                <i class="fas fa-chart-bar"></i> Statistiques Indices
+                            </a>
+                        </li>
 
                     </ul>
                     
