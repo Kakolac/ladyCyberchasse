@@ -173,35 +173,6 @@ include 'includes/header.php';
                             <p>Résolvez cette énigme de cybersécurité pour progresser dans votre mission et débloquer le prochain lieu !</p>
                         </div>
                         
-                        <!-- DEBUG VISIBLE - À SUPPRIMER APRÈS CORRECTION -->
-                        <div class="alert alert-warning">
-                            <strong>🔍 Debug Lanceur (Mobile):</strong><br>
-                            <small>
-                                Session ID: <?php echo session_id(); ?><br>
-                                Équipe: <?php echo $_SESSION['team_name'] ?? 'NULL'; ?><br>
-                                Lieu ID: <?php echo $lieu['id']; ?><br>
-                                Équipe ID: <?php echo $equipe['id']; ?><br>
-                                Clé session enigme: <?php echo $enigme_session_key; ?><br>
-                                Clé session indice: <?php echo $indice_session_key; ?><br>
-                                Session enigme: <?php echo isset($_SESSION[$enigme_session_key]) ? date('H:i:s', $_SESSION[$enigme_session_key]) : 'NULL'; ?><br>
-                                Session indice: <?php echo isset($_SESSION[$indice_session_key]) ? date('H:i:s', $_SESSION[$indice_session_key]) : 'NULL'; ?><br>
-                                Enigme start: <?php echo date('H:i:s', $enigme_start_time); ?><br>
-                                Indice start: <?php echo date('H:i:s', $indice_start_time); ?><br>
-                                Reset détecté: <?php echo $reset_detected ? 'OUI' : 'NON'; ?><br>
-                                <strong>NOUVEAU DEBUG:</strong><br>
-                                Enigme elapsed: <?php echo isset($enigme_elapsed_time) ? $enigme_elapsed_time . ' secondes' : 'NULL'; ?><br>
-                                Indice elapsed: <?php echo isset($indice_elapsed_time) ? $indice_elapsed_time . ' secondes' : 'NULL'; ?><br>
-                                Indice available: <?php echo $indice_available ? 'OUI' : 'NON'; ?><br>
-                                Temps actuel: <?php echo date('H:i:s'); ?><br>
-                                Timestamp actuel: <?php echo time(); ?><br>
-                                <strong>CALCULS:</strong><br>
-                                Différence enigme: <?php echo time() - $enigme_start_time; ?> secondes<br>
-                                Différence indice: <?php echo time() - $indice_start_time; ?> secondes<br>
-                                Seuil 6 minutes: 360 secondes<br>
-                                Seuil 3 minutes: 180 secondes
-                            </small>
-                        </div>
-                        
                         <?php
                         // Inclusion du template spécifique au type d'énigme
                         $template_path = "templates/enigmes/{$lieu['template']}.php";

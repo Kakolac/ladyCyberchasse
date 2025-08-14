@@ -53,31 +53,6 @@ $debug_info = [
     <h4>🎯 Question principale</h4>
     <p class='lead'><?php echo htmlspecialchars($donnees['question']); ?></p>
     
-    <!-- DEBUG MOBILE - À SUPPRIMER APRÈS CORRECTION -->
-    <div class="alert alert-warning">
-        <strong>🔍 Debug Timer (Mobile):</strong><br>
-        <small>
-            Enigme start: <?php echo date('H:i:s', $enigme_start_time); ?><br>
-            Temps écoulé: <?php echo gmdate('i:s', $enigme_elapsed_time); ?><br>
-            Temps restant: <?php echo gmdate('i:s', $remaining_time); ?><br>
-            Indice dispo: <?php echo $indice_available ? '✅ OUI' : '❌ NON'; ?><br>
-            Indice consulté: <?php echo $indice_consulte ? '✅ OUI' : '❌ NON'; ?><br>
-            Session key: <?php echo $enigme_session_key; ?>
-        </small>
-    </div>
-    
-    <!-- Debug persistance -->
-    <div class="alert alert-info">
-        <strong>🔍 Debug Persistance:</strong><br>
-        <small>
-            Session ID: <?php echo session_id(); ?><br>
-            Enigme start: <?php echo date('H:i:s', $enigme_start_time); ?><br>
-            Indice start: <?php echo date('H:i:s', $indice_start_time); ?><br>
-            Temps restant: <?php echo gmdate('i:s', $remaining_time); ?><br>
-            Session keys: <?php echo implode(', ', $debug_info['session_keys']); ?>
-        </small>
-    </div>
-    
     <?php if (!empty($donnees['indice'])): ?>
         <div class="indice-section mt-3">
             <?php if ($indice_consulte): ?>
@@ -137,6 +112,11 @@ $debug_info = [
 let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
 let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
 
+// Variables PHP passées au JavaScript
+const LIEU_ID = <?php echo $lieu['id'] ?? 'null'; ?>;
+const EQUIPE_ID = <?php echo $equipe['id'] ?? 'null'; ?>;
+const ENIGME_ID = <?php echo $lieu['enigme_id'] ?? 'null'; ?>;
+
 // Fonction pour démarrer le timer de l'indice
 function startIndiceTimer() {
     // Debug mobile avec alert
@@ -148,31 +128,38 @@ function startIndiceTimer() {
     }
     
     const indiceButton = document.getElementById('indice-button');
-    const countdownSpan = document.getElementById('indice-countdown');
-    
-    if (!indiceButton || !countdownSpan) {
+    if (!indiceButton) {
         alert('Éléments du timer non trouvés');
         return;
     }
     
-    const timer = setInterval(() => {
+    // Synchroniser immédiatement l'affichage du bouton avec le temps PHP
+    const countdownSpan = indiceButton.querySelector('#indice-countdown');
+    if (countdownSpan) {
+        countdownSpan.textContent = '<?php echo gmdate('i:s', $remaining_time); ?>';
+    }
+    
+    // Mettre à jour le bouton toutes les secondes
+    const countdown = setInterval(() => {
         const now = Math.floor(Date.now() / 1000);
-        const elapsed = now - <?php echo $indice_start_time; ?>; // Utiliser $indice_start_time
-        const remaining = Math.max(0, 360 - elapsed);
+        const enigmeStart = <?php echo $enigme_start_time; ?>;
+        const remaining = 360 - (now - enigmeStart); // 6 minutes depuis le début de l'énigme
         
         if (remaining <= 0) {
             // L'indice est maintenant disponible
-            clearInterval(timer);
+            clearInterval(countdown);
             indiceAvailable = true;
+            
+            // Debug
             alert('💡 Indice maintenant disponible !');
             
-            // Activer le bouton
-            indiceButton.innerHTML = '<i class="fas fa-lightbulb"></i> 💡 Consulter l\'indice';
+            // Mettre à jour l'interface
+            indiceButton.innerHTML = '<i class="fas fa-lightbulb"></i> Consulter l\'indice';
             indiceButton.className = 'btn btn-info btn-sm';
             indiceButton.disabled = false;
             indiceButton.onclick = consulterIndice;
             
-            // Supprimer le message d'info
+            // Supprimer le message d'attente
             const infoDiv = indiceButton.nextElementSibling;
             if (infoDiv) {
                 infoDiv.remove();
@@ -181,31 +168,40 @@ function startIndiceTimer() {
             // Mettre à jour le compte à rebours
             const minutes = Math.floor(remaining / 60);
             const seconds = remaining % 60;
-            countdownSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            const countdownSpan = indiceButton.querySelector('#indice-countdown');
+            if (countdownSpan) {
+                countdownSpan.textContent = timeStr;
+            }
         }
     }, 1000);
 }
 
+// Fonction pour consulter l'indice
 function consulterIndice() {
-    if (indiceConsulte || !indiceAvailable) return;
+    if (indiceConsulte) {
+        return;
+    }
     
     // Afficher l'indice
-    document.getElementById('indice-content').style.display = 'block';
+    const indiceContent = document.getElementById('indice-content');
+    if (indiceContent) {
+        indiceContent.style.display = 'block';
+    }
     
-    // Changer le bouton
-    const bouton = event.target;
-    bouton.innerHTML = '<i class="fas fa-check"></i> ✅ Indice consulté';
-    bouton.className = 'btn btn-secondary btn-sm';
-    bouton.disabled = true;
+    // Mettre à jour le bouton
+    const indiceButton = document.querySelector('.indice-section button');
+    if (indiceButton) {
+        indiceButton.innerHTML = '<i class="fas fa-check"></i> Indice consulté';
+        indiceButton.className = 'btn btn-secondary btn-sm';
+        indiceButton.disabled = true;
+    }
     
     // Marquer comme consulté
     indiceConsulte = true;
     
-    // Enregistrer la consultation en base
-    saveIndiceConsultation();
-}
-
-function saveIndiceConsultation() {
+    // Enregistrer la consultation côté serveur
     fetch('save_indice_consultation.php', {
         method: 'POST',
         headers: {
@@ -213,7 +209,7 @@ function saveIndiceConsultation() {
         },
         body: JSON.stringify({
             lieu: LIEU_SLUG,
-            enigme_id: <?php echo $lieu['enigme_id']; ?>
+            enigme_id: ENIGME_ID
         })
     })
     .then(response => response.json())
@@ -303,11 +299,11 @@ document.getElementById('reponse_libre').addEventListener('keypress', function(e
     }
 });
 
-// DÉMARRAGE AUTOMATIQUE DU TIMER
+// Vérification au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
     alert('Page chargée ! Vérification du timer...');
     
-    // Démarrer le timer de l'indice si pas encore disponible
+    // Vérifier si on doit démarrer le timer de l'indice
     if (!indiceAvailable && !indiceConsulte) {
         alert('Démarrage automatique du timer...');
         startIndiceTimer();
