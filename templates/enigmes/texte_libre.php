@@ -120,16 +120,16 @@ const ENIGME_ID = <?php echo $lieu['enigme_id'] ?? 'null'; ?>;
 // Fonction pour démarrer le timer de l'indice
 function startIndiceTimer() {
     // Debug mobile avec alert
-    alert('Timer démarré ! Temps restant: <?php echo gmdate('i:s', $remaining_time); ?>');
+    //alert('Timer démarré ! Temps restant: <?php echo gmdate('i:s', $remaining_time); ?>');
     
     if (indiceAvailable) {
-        alert('Indice déjà disponible, pas de timer nécessaire');
+        //alert('Indice déjà disponible, pas de timer nécessaire');
         return;
     }
     
     const indiceButton = document.getElementById('indice-button');
     if (!indiceButton) {
-        alert('Éléments du timer non trouvés');
+        //alert('Éléments du timer non trouvés');
         return;
     }
     
@@ -216,7 +216,7 @@ function consulterIndice() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('✅ Consultation d\'indice enregistrée');
+            //alert('✅ Consultation d\'indice enregistrée');
         } else {
             alert('❌ Erreur enregistrement indice: ' + data.error);
         }
@@ -302,14 +302,14 @@ document.getElementById('reponse_libre').addEventListener('keypress', function(e
 
 // Vérification au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
-    alert('Page chargée ! Vérification du timer...');
+    //alert('Page chargée ! Vérification du timer...');
     
     // Vérifier si on doit démarrer le timer de l'indice
     if (!indiceAvailable && !indiceConsulte) {
-        alert('Démarrage automatique du timer...');
+        //alert('Démarrage automatique du timer...');
         startIndiceTimer();
     } else {
-        alert('Timer non nécessaire ou déjà consulté');
+        //alert('Timer non nécessaire ou déjà consulté');
     }
 });
 </script>
