@@ -54,6 +54,8 @@ $enigme_resolue = ($parcours && $parcours['statut'] === 'termine');
 $enigme_start_time = null;
 $indice_start_time = null;
 $indice_available = false;
+$enigme_elapsed_time = 0;  // Initialisation par défaut
+$indice_elapsed_time = 0;  // Initialisation par défaut
 
 if (!$enigme_resolue && $lieu['enigme_id']) {
     // Créer des clés uniques séparées
@@ -123,10 +125,14 @@ if (!$enigme_resolue && $lieu['enigme_id']) {
         $enigme_elapsed_time = time() - $enigme_start_time;
         $delai_indice_secondes = $lieu['delai_indice'] * 60; // Convertir en secondes
         $indice_available = ($enigme_elapsed_time >= $delai_indice_secondes);
+        
+        // Calculer le temps écoulé depuis le début de l'indice
+        $indice_elapsed_time = time() - $indice_start_time;
     }
     
     // Passer les deux timers au template
     $enigme_elapsed_time = time() - $enigme_start_time;
+    $indice_elapsed_time = time() - $indice_start_time;
     
     // Debug final pour vérifier
     error_log("FINAL DEBUG - Indice available: " . ($indice_available ? 'true' : 'false'));
