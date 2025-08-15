@@ -303,6 +303,13 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                             </a>
                         </li>
 
+                        <!-- Sauvegarde de la base de données -->
+                        <li class="nav-item">
+                            <a class="nav-link <?php echo $current_page === 'savBDD' ? 'active' : ''; ?>" href="savBDD.php">
+                                <i class="fas fa-database"></i> Sauvegarde BDD
+                            </a>
+                        </li>
+
                     </ul>
                     
                     <!-- Actions rapides -->
