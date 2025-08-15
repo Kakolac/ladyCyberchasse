@@ -100,24 +100,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     if (deleteDirectory($repertoire_lieu)) {
                         $repertoire_supprime = true;
                     } else {
-                        // Erreur suppression répertoire mais on continue
                         $warning_message = "Attention : Impossible de supprimer le répertoire physique du lieu.";
                     }
                 } else {
-                    // Répertoire n'existe pas, notification mais on continue
                     $info_message = "Information : Le répertoire physique du lieu n'existe pas.";
                 }
                 
-                // Supprimer de la BDD
-                $stmt = $pdo->prepare("DELETE FROM lieux WHERE id = ?");
-                if ($stmt->execute([$lieu_id])) {
+                // Essayer de supprimer le lieu avec gestion d'erreur
+                try {
+                    $stmt = $pdo->prepare("DELETE FROM lieux WHERE id = ?");
+                    $stmt->execute([$lieu_id]);
+                    
+                    // Suppression directe réussie
                     if ($repertoire_supprime) {
                         $success_message = "Lieu et répertoire supprimés avec succès !";
                     } else {
                         $success_message = "Lieu supprimé de la BDD avec succès !";
                     }
+                    
+                } catch (PDOException $e) {
+                    // Erreur de contrainte détectée - faire la suppression en cascade
+                    if ($e->getCode() == '23000') {
+                        try {
+                            $pdo->beginTransaction();
+                            
+                            // Fonction pour vérifier si une table existe
+                            function tableExists($pdo, $table) {
+                                try {
+                                    $stmt = $pdo->query("SHOW TABLES LIKE '{$table}'");
+                                    return $stmt->rowCount() > 0;
+                                } catch (Exception $e) {
+                                    return false;
+                                }
+                            }
+                            
+                            // Supprimer les données liées dans l'ordre (seulement si les tables existent)
+                            $tables_cascade = [
+                                'indices_consultes' => 'lieu_id',
+                                'indices_forces' => 'lieu_id', 
+                                'temps_parcours' => 'lieu_id',
+                                'resets' => 'lieu_id'
+                            ];
+                            
+                            $donnees_supprimees = [];
+                            
+                            foreach ($tables_cascade as $table => $colonne) {
+                                if (tableExists($pdo, $table)) {
+                                    $stmt = $pdo->prepare("DELETE FROM {$table} WHERE {$colonne} = ?");
+                                    if ($stmt->execute([$lieu_id])) {
+                                        $count = $stmt->rowCount();
+                                        if ($count > 0) {
+                                            $donnees_supprimees[] = "{$count} enregistrement(s) de {$table}";
+                                        }
+                                    }
+                                } else {
+                                    // Table n'existe pas, on l'ignore
+                                    $donnees_supprimees[] = "Table {$table} ignorée (n'existe pas)";
+                                }
+                            }
+                            
+                            // Maintenant supprimer le lieu
+                            $stmt = $pdo->prepare("DELETE FROM lieux WHERE id = ?");
+                            if ($stmt->execute([$lieu_id])) {
+                                $pdo->commit();
+                                
+                                // Message de succès avec détails
+                                $message_suppression = "Lieu supprimé avec succès !";
+                                if (!empty($donnees_supprimees)) {
+                                    $message_suppression .= " Données liées supprimées : " . implode(', ', $donnees_supprimees);
+                                }
+                                if ($repertoire_supprime) {
+                                    $message_suppression .= " Répertoire physique également supprimé.";
+                                }
+                                
+                                $success_message = $message_suppression;
+                            } else {
+                                throw new Exception("Impossible de supprimer le lieu après nettoyage des données");
+                            }
+                            
+                        } catch (Exception $e2) {
+                            $pdo->rollBack();
+                            $error_message = "Erreur lors de la suppression en cascade : " . $e2->getMessage();
+                        }
+                    } else {
+                        // Autre type d'erreur PDO
+                        $error_message = "Erreur lors de la suppression du lieu : " . $e->getMessage();
+                    }
+                }
+            }
+            break;
+
+        // NOUVELLE ACTION : Mettre à jour les propriétés du lieu
+        case 'update_lieu_properties':
+            $lieu_id = $_POST['lieu_id'];
+            $nom = trim($_POST['nom']);
+            $ordre = (int)$_POST['ordre'];
+            $description = trim($_POST['description']);
+            $temps_limite = (int)$_POST['temps_limite'];
+            $delai_indice = (int)$_POST['delai_indice'];
+            $statut = $_POST['statut'];
+            $enigme_requise = isset($_POST['enigme_requise']) ? 1 : 0;
+            
+            // Validation des données
+            if (empty($nom) || $ordre < 1 || $temps_limite < 60 || $delai_indice < 1 || $delai_indice > 60) {
+                $error_message = "Données invalides. Vérifiez les valeurs saisies.";
+            } else {
+                $stmt = $pdo->prepare("
+                    UPDATE lieux 
+                    SET nom = ?, ordre = ?, description = ?, temps_limite = ?, 
+                        delai_indice = ?, statut = ?, enigme_requise = ?
+                    WHERE id = ?
+                ");
+                if ($stmt->execute([$nom, $ordre, $description, $temps_limite, $delai_indice, $statut, $enigme_requise, $lieu_id])) {
+                    $success_message = "Propriétés du lieu mises à jour avec succès !";
                 } else {
-                    $error_message = "Erreur lors de la suppression du lieu en base de données";
+                    $error_message = "Erreur lors de la mise à jour des propriétés";
                 }
             }
             break;
@@ -318,7 +415,22 @@ include 'includes/header.php';
                                             <i class="fas fa-map-marker-alt text-primary"></i>
                                             <?php echo htmlspecialchars($lieu['nom']); ?>
                                         </h5>
-                                        <div>
+                                        <div class="d-flex gap-2">
+                                            <!-- NOUVEAU : Bouton Gestion -->
+                                            <button type="button" class="btn btn-info btn-sm" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#gestionLieuModal"
+                                                    data-lieu-id="<?php echo $lieu['id']; ?>"
+                                                    data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
+                                                    data-lieu-ordre="<?php echo $lieu['ordre']; ?>"
+                                                    data-lieu-description="<?php echo htmlspecialchars($lieu['description'] ?? ''); ?>"
+                                                    data-lieu-temps-limite="<?php echo $lieu['temps_limite']; ?>"
+                                                    data-lieu-delai-indice="<?php echo $lieu['delai_indice']; ?>"
+                                                    data-lieu-statut="<?php echo $lieu['statut']; ?>"
+                                                    data-lieu-enigme-requise="<?php echo $lieu['enigme_requise'] ? '1' : '0'; ?>">
+                                                <i class="fas fa-cog"></i> Gestion
+                                            </button>
+                                            
                                             <span class="badge bg-<?php echo $lieu['statut'] === 'actif' ? 'success' : 'secondary'; ?>">
                                                 <?php echo $lieu['statut']; ?>
                                             </span>
@@ -639,6 +751,96 @@ include 'includes/header.php';
         </div>
     </div>
 
+    <!-- NOUVELLE MODALE : Gestion des propriétés du lieu -->
+    <div class="modal fade" id="gestionLieuModal" tabindex="-1" aria-labelledby="gestionLieuModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title" id="gestionLieuModalLabel">
+                        <i class="fas fa-cog"></i> Gestion des Propriétés du Lieu
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="update_lieu_properties">
+                        <input type="hidden" name="lieu_id" id="gestionLieuId">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="gestionNom" class="form-label">Nom du lieu *</label>
+                                <input type="text" class="form-control" name="nom" id="gestionNom" required>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="gestionOrdre" class="form-label">Ordre de passage *</label>
+                                <input type="number" class="form-control" name="ordre" id="gestionOrdre" min="1" required>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="gestionDescription" class="form-label">Description</label>
+                            <textarea class="form-control" name="description" id="gestionDescription" rows="3" 
+                                      placeholder="Description optionnelle du lieu..."></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="gestionTempsLimite" class="form-label">Temps limite (secondes) *</label>
+                                <input type="number" class="form-control" name="temps_limite" id="gestionTempsLimite" 
+                                       min="60" max="3600" required>
+                                <small class="text-muted">Temps maximum pour résoudre l'énigme (60s à 3600s)</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="gestionDelaiIndice" class="form-label">Délai d'indice (minutes)</label>
+                                <input type="number" class="form-control" name="delai_indice" id="gestionDelaiIndice" 
+                                       min="1" max="60">
+                                <small class="text-muted">Temps d'attente avant que l'indice soit disponible</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="gestionStatut" class="form-label">Statut *</label>
+                                <select class="form-select" name="statut" id="gestionStatut" required>
+                                    <option value="actif">Actif</option>
+                                    <option value="inactif">Inactif</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="enigme_requise" id="gestionEnigmeRequise">
+                                    <label class="form-check-label" for="gestionEnigmeRequise">
+                                        Énigme obligatoire
+                                    </label>
+                                    <small class="form-text text-muted d-block">
+                                        Si coché, ce lieu doit être visité pour terminer le parcours
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Conseil :</strong> Modifiez les propriétés de base du lieu ici. 
+                            Pour gérer les énigmes, utilisez les boutons d'action spécifiques.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Annuler
+                        </button>
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-save"></i> Sauvegarder les modifications
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts spécifiques à cette page -->
     <script>
         // Gestion du modal d'affectation d'énigme
@@ -700,6 +902,32 @@ include 'includes/header.php';
                     document.getElementById('delaiLieuId').value = lieuId;
                     document.getElementById('delaiLieuNom').value = lieuNom;
                     document.getElementById('delai_indice').value = delaiActuel;
+                });
+            }
+
+            // NOUVEAU : Gestion du modal de gestion des propriétés
+            const gestionLieuModal = document.getElementById('gestionLieuModal');
+            if (gestionLieuModal) {
+                gestionLieuModal.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    const lieuId = button.getAttribute('data-lieu-id');
+                    const lieuNom = button.getAttribute('data-lieu-nom');
+                    const lieuOrdre = button.getAttribute('data-lieu-ordre');
+                    const lieuDescription = button.getAttribute('data-lieu-description');
+                    const lieuTempsLimite = button.getAttribute('data-lieu-temps-limite');
+                    const lieuDelaiIndice = button.getAttribute('data-lieu-delai-indice');
+                    const lieuStatut = button.getAttribute('data-lieu-statut');
+                    const lieuEnigmeRequise = button.getAttribute('data-lieu-enigme-requise');
+                    
+                    // Mettre à jour le modal avec les données du lieu
+                    document.getElementById('gestionLieuId').value = lieuId;
+                    document.getElementById('gestionNom').value = lieuNom;
+                    document.getElementById('gestionOrdre').value = lieuOrdre;
+                    document.getElementById('gestionDescription').value = lieuDescription;
+                    document.getElementById('gestionTempsLimite').value = lieuTempsLimite;
+                    document.getElementById('gestionDelaiIndice').value = lieuDelaiIndice;
+                    document.getElementById('gestionStatut').value = lieuStatut;
+                    document.getElementById('gestionEnigmeRequise').checked = (lieuEnigmeRequise === '1');
                 });
             }
         });
