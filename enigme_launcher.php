@@ -29,7 +29,7 @@ if (!$equipe) {
 
 // Récupération du lieu avec son énigme et son délai d'indice
 $stmt = $pdo->prepare("
-    SELECT l.*, e.id as enigme_id, e.type_enigme_id, te.template, te.nom as type_nom,
+    SELECT l.*, e.id as enigme_id, e.type_enigme_id, e.donnees, te.template, te.nom as type_nom,
            COALESCE(l.delai_indice, 6) as delai_indice
     FROM lieux l 
     LEFT JOIN enigmes e ON l.enigme_id = e.id 
@@ -176,9 +176,19 @@ include 'includes/header.php';
                         
                     <?php elseif ($lieu['enigme_id']): ?>
                         <!-- Énigme à résoudre -->
+                        <?php
+                        // Récupérer le contexte depuis les données JSON de l'énigme
+                        $contexte = "Résolvez cette énigme de cybersécurité pour progresser dans votre mission et débloquer le prochain lieu !";
+                        if (!empty($lieu['donnees'])) {
+                            $donnees_enigme = json_decode($lieu['donnees'], true);
+                            if (json_last_error() === JSON_ERROR_NONE && isset($donnees_enigme['contexte'])) {
+                                $contexte = $donnees_enigme['contexte'];
+                            }
+                        }
+                        ?>
                         <div class='alert alert-info'>
                             <h5>🎯 Contexte</h5>
-                            <p>Résolvez cette énigme de cybersécurité pour progresser dans votre mission et débloquer le prochain lieu !</p>
+                            <p><?php echo htmlspecialchars($contexte); ?></p>
                         </div>
                         
                         <?php

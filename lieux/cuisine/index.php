@@ -9,7 +9,7 @@ require_once '../../config/connexion.php';
 
 // Récupération des informations de l'équipe et du lieu
 $team_name = $_SESSION['team_name'];
-$lieu_slug = 'salleamanger';
+$lieu_slug = 'cuisine';
 
 // Récupération de l'équipe
 $stmt = $pdo->prepare("SELECT id FROM equipes WHERE nom = ?");
@@ -37,7 +37,13 @@ $stmt->execute([$equipe['id'], $lieu['id']]);
 $parcours = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // Vérification si l'énigme est déjà résolue
+// Un lieu est résolu seulement s'il existe dans le parcours ET qu'il est marqué comme terminé
 $enigme_resolue = ($parcours && $parcours['statut'] === 'termine');
+
+// Si le lieu n'existe pas dans le parcours, il ne peut pas être résolu
+if (!$parcours) {
+    $enigme_resolue = false;
+}
 
 include './header.php';
 ?>
@@ -101,7 +107,7 @@ include './header.php';
                         
                         <div class='text-center'>
                             <h4> Prêt à commencer l'enquête ?</h4>
-                            <a href='../../enigme_launcher.php?lieu=salleamanger' class='btn btn-dark btn-lg'> Commencer l'énigme</a>
+                            <a href='../../enigme_launcher.php?lieu=<?php echo $lieu_slug; ?>' class='btn btn-dark btn-lg'> Commencer l'énigme</a>
                         </div>
                     <?php endif; ?>
                     

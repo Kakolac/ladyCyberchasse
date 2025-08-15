@@ -22,7 +22,7 @@ if (!$equipe) {
 }
 
 // Récupération du lieu
-$stmt = $pdo->prepare("SELECT id, nom, ordre FROM lieux WHERE slug = ?");
+$stmt = $pdo->prepare("SELECT id, nom, ordre, description FROM lieux WHERE slug = ?");
 $stmt->execute([$lieu_slug]);
 $lieu = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -72,11 +72,14 @@ include './header.php';
                     <?php else: ?>
                         <!-- Énigme à résoudre -->
                         <div class='alert alert-info'>
-                            <h5>🚨 Mission Cybersécurité</h5>
-                            <p>Explorez ce lieu pour résoudre une énigme de cybersécurité et progresser dans votre mission !</p>
+                            <?php if (!empty($lieu['description'])): ?>
+                                <p class="mb-0"><?php echo htmlspecialchars($lieu['description']); ?></p>
+                            <?php else: ?>
+                                <p class="mb-0">Aucune description disponible pour ce lieu.</p>
+                            <?php endif; ?>
                         </div>
                         
-                        <div class='row'>
+                        <!-- <div class='row'>
                             <div class='col-md-6'>
                                 <h5> Mission en cours</h5>
                                 <p>Votre objectif :</p>
@@ -92,13 +95,13 @@ include './header.php';
                                 <div id='timer' class='display-4 text-danger'></div>
                                 <p class='text-muted'>Vous avez 12 minutes pour cette mission</p>
                             </div>
-                        </div>
+                        </div> -->
                         
                         <hr>
                         
                         <div class='text-center'>
                             <h4> Prêt à commencer l'enquête ?</h4>
-                            <a href='../../enigme_launcher.php?lieu=direction' class='btn btn-dark btn-lg'> Commencer l'énigme</a>
+                            <a href='../../enigme_launcher.php?lieu=<?php echo $lieu_slug; ?>' class='btn btn-dark btn-lg'> Commencer l'énigme</a>
                         </div>
                     <?php endif; ?>
                     
@@ -106,7 +109,7 @@ include './header.php';
             </div>
         </div>
         
-        <div class='col-md-4'>
+        <!-- <div class='col-md-4'>
             <div class='card'>
                 <div class='card-header bg-primary text-white'>
                     <h5>🗺️ Navigation</h5>
@@ -137,7 +140,7 @@ include './header.php';
                     <small class='text-muted'>Progression en cours...</small>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 </div>
 
