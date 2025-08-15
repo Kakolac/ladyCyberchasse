@@ -111,6 +111,14 @@ try {
     $enigmes_disponibles = [];
 }
 
+// Récupération du prochain ordre disponible
+try {
+    $stmt = $pdo->query("SELECT COALESCE(MAX(ordre), 0) + 1 as prochain_ordre FROM lieux");
+    $prochain_ordre = $stmt->fetch(PDO::FETCH_ASSOC)['prochain_ordre'];
+} catch (Exception $e) {
+    $prochain_ordre = 1;
+}
+
 // Configuration pour le header
 $page_title = 'Gestion des Lieux - Administration Cyberchasse';
 $current_page = 'lieux';
@@ -159,6 +167,9 @@ include 'includes/header.php';
                 <a href="enigmes.php" class="btn btn-info me-2">
                     <i class="fas fa-puzzle-piece"></i> Gérer les Énigmes
                 </a>
+                <button type="button" class="btn btn-success me-2" onclick="ouvrirModalCreerLieu()">
+                    <i class="fas fa-plus"></i> Créer un lieu
+                </button>
                 <a href="admin.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Retour au tableau de bord
                 </a>
@@ -443,10 +454,123 @@ include 'includes/header.php';
         </div>
     </div>
 
+    <!-- Modal de création de lieu -->
+    <div class="modal fade" id="creerLieuModal" tabindex="-1" aria-labelledby="creerLieuModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="creerLieuModalLabel">
+                        <i class="fas fa-plus"></i> Créer un Nouveau Lieu
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="creer-lieux.php">
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="nom" class="form-label">Nom du lieu *</label>
+                                <input type="text" class="form-control" id="nom" name="nom" required 
+                                       placeholder="Ex: CDI, Cour, Laboratoire...">
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="ordre" class="form-label">Ordre de passage *</label>
+                                <input type="number" class="form-control" id="ordre" name="ordre" 
+                                       min="1" required>
+                                <small class="text-muted">Ordre dans lequel les équipes doivent visiter ce lieu</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" 
+                                      placeholder="Description optionnelle du lieu..."></textarea>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="temps_limite" class="form-control-label">Temps limite (secondes) *</label>
+                                <input type="number" class="form-control" id="temps_limite" name="temps_limite" 
+                                       value="300" min="60" max="3600" required>
+                                <small class="text-muted">Temps maximum pour résoudre l'énigme (60s à 3600s)</small>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <label for="delai_indice" class="form-label">Délai d'indice (minutes)</label>
+                                <input type="number" class="form-control" id="delai_indice" name="delai_indice" 
+                                       value="6" min="1" max="60">
+                                <small class="text-muted">Temps d'attente avant que l'indice soit disponible</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="statut" class="form-label">Statut *</label>
+                                <select class="form-select" id="statut" name="statut" required>
+                                    <option value="actif">Actif</option>
+                                    <option value="inactif">Inactif</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6 mb-3 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="enigme_requise" name="enigme_requise">
+                                    <label class="form-check-label" for="enigme_requise">
+                                        Énigme obligatoire
+                                    </label>
+                                    <small class="form-text text-muted d-block">
+                                        Si coché, ce lieu doit être visité pour terminer le parcours
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Conseil :</strong> Vous pourrez affecter une énigme à ce lieu après sa création 
+                            depuis la page de gestion des lieux.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times"></i> Annuler
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Créer le lieu
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts spécifiques à cette page -->
     <script>
         // Gestion du modal d'affectation d'énigme
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM chargé, initialisation des modales...');
+            
+            // Test de la modale de création de lieu
+            const creerLieuModal = document.getElementById('creerLieuModal');
+            console.log('Modal creerLieuModal trouvé:', creerLieuModal);
+            
+            if (creerLieuModal) {
+                // Test d'ouverture de la modale
+                const testButton = document.querySelector('[data-bs-target="#creerLieuModal"]');
+                console.log('Bouton trouvé:', testButton);
+                
+                if (testButton) {
+                    testButton.addEventListener('click', function(e) {
+                        console.log('Clic sur le bouton Créer un lieu');
+                        e.preventDefault();
+                        
+                        // Ouvrir la modale manuellement
+                        const modal = new bootstrap.Modal(creerLieuModal);
+                        modal.show();
+                    });
+                }
+            }
+            
             const affecterEnigmeModal = document.getElementById('affecterEnigmeModal');
             if (affecterEnigmeModal) {
                 affecterEnigmeModal.addEventListener('show.bs.modal', function (event) {
@@ -484,6 +608,21 @@ include 'includes/header.php';
                 });
             }
         });
+        
+        // Fonction pour ouvrir la modale de création de lieu
+        function ouvrirModalCreerLieu() {
+            console.log('Fonction ouvrirModalCreerLieu appelée');
+            const modal = document.getElementById('creerLieuModal');
+            console.log('Modal trouvé:', modal);
+            
+            if (modal) {
+                const bootstrapModal = new bootstrap.Modal(modal);
+                bootstrapModal.show();
+                console.log('Modale ouverte avec succès');
+            } else {
+                console.error('Modal creerLieuModal non trouvé');
+            }
+        }
     </script>
 
 <?php include 'includes/footer.php'; ?>
