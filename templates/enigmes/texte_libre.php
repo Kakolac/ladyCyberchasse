@@ -119,17 +119,21 @@ const ENIGME_ID = <?php echo $lieu['enigme_id'] ?? 'null'; ?>;
 
 // Fonction pour démarrer le timer de l'indice
 function startIndiceTimer() {
-    // Debug mobile avec alert
-    //alert('Timer démarré ! Temps restant: <?php echo gmdate('i:s', $remaining_time); ?>');
+    // Debug mobile avec SweetAlert2 au lieu de alert
+    // Swal.fire({
+    //     icon: 'info',
+    //     title: 'Timer démarré !',
+    //     text: 'Temps restant: <?php echo gmdate('i:s', $remaining_time); ?>',
+    //     timer: 2000,
+    //     showConfirmButton: false
+    // });
     
     if (indiceAvailable) {
-        //alert('Indice déjà disponible, pas de timer nécessaire');
         return;
     }
     
     const indiceButton = document.getElementById('indice-button');
     if (!indiceButton) {
-        //alert('Éléments du timer non trouvés');
         return;
     }
     
@@ -151,8 +155,14 @@ function startIndiceTimer() {
             clearInterval(countdown);
             indiceAvailable = true;
             
-            // Debug
-            alert('💡 Indice maintenant disponible !');
+            // Debug avec SweetAlert2
+            Swal.fire({
+                icon: 'success',
+                title: '💡 Indice disponible !',
+                text: 'Vous pouvez maintenant consulter l\'indice',
+                timer: 3000,
+                showConfirmButton: false
+            });
             
             // Mettre à jour l'interface
             indiceButton.innerHTML = '<i class="fas fa-lightbulb"></i> Consulter l\'indice';
@@ -185,18 +195,40 @@ function consulterIndice() {
         return;
     }
     
-    // Afficher l'indice
-    const indiceContent = document.getElementById('indice-content');
-    if (indiceContent) {
-        indiceContent.style.display = 'block';
+    // Créer et afficher l'indice dynamiquement
+    const indiceSection = document.querySelector('.indice-section');
+    if (indiceSection) {
+        // Supprimer l'ancien contenu de l'indice s'il existe
+        const oldIndiceContent = document.getElementById('indice-content');
+        if (oldIndiceContent) {
+            oldIndiceContent.remove();
+        }
+        
+        // Créer le nouveau contenu de l'indice
+        const indiceContent = document.createElement('div');
+        indiceContent.id = 'indice-content';
+        indiceContent.className = 'mt-2';
+        indiceContent.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-lightbulb"></i>
+                <strong>💡 Indice :</strong> <?php echo htmlspecialchars($donnees['indice']); ?>
+            </div>
+        `;
+        
+        // Insérer l'indice après le bouton
+        const indiceButton = indiceSection.querySelector('button');
+        if (indiceButton) {
+            indiceButton.parentNode.insertBefore(indiceContent, indiceButton.nextSibling);
+        }
     }
     
     // Mettre à jour le bouton
-    const indiceButton = document.querySelector('.indice-section button');
+    const indiceButton = document.querySelector('.indice-section button.btn-info');
     if (indiceButton) {
         indiceButton.innerHTML = '<i class="fas fa-check"></i> Indice consulté';
         indiceButton.className = 'btn btn-secondary btn-sm';
         indiceButton.disabled = true;
+        indiceButton.onclick = null;
     }
     
     // Marquer comme consulté
@@ -216,13 +248,28 @@ function consulterIndice() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            //alert('✅ Consultation d\'indice enregistrée');
+            // Remplacer alert par SweetAlert2
+            Swal.fire({
+                icon: 'success',
+                title: '✅ Succès !',
+                text: 'Consultation d\'indice enregistrée',
+                timer: 2000,
+                showConfirmButton: false
+            });
         } else {
-            alert('❌ Erreur enregistrement indice: ' + data.error);
+            Swal.fire({
+                icon: 'error',
+                title: '❌ Erreur',
+                text: 'Erreur enregistrement indice: ' + data.error
+            });
         }
     })
     .catch(error => {
-        alert('❌ Erreur: ' + error);
+        Swal.fire({
+            icon: 'error',
+            title: '❌ Erreur',
+            text: 'Erreur: ' + error
+        });
     });
 }
 
@@ -230,7 +277,11 @@ function validateTextAnswer() {
     const reponse = document.getElementById('reponse_libre').value.trim();
     
     if (!reponse) {
-        alert('⚠️ Veuillez saisir une réponse avant de valider.');
+        Swal.fire({
+            icon: 'warning',
+            title: '⚠️ Attention',
+            text: 'Veuillez saisir une réponse avant de valider.'
+        });
         return;
     }
     
@@ -256,10 +307,24 @@ function validateTextAnswer() {
         // Mise à jour du parcours
         updateParcoursStatus(true);
         
-        alert('🎉 Bravo ! Vous avez résolu l\'énigme !');
-        window.location.href = 'lieux/' + LIEU_SLUG + '/';
+        Swal.fire({
+            icon: 'success',
+            title: '🎉 Bravo !',
+            text: 'Vous avez résolu l\'énigme !',
+            confirmButtonText: 'Continuer',
+            allowOutsideClick: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = 'lieux/' + LIEU_SLUG + '/';
+            }
+        });
     } else {
-        alert('❌ Réponse incorrecte. Réfléchissez et réessayez...');
+        Swal.fire({
+            icon: 'error',
+            title: '❌ Réponse incorrecte',
+            text: 'Réfléchissez et réessayez...',
+            confirmButtonText: 'Réessayer'
+        });
         
         // Vider le champ de réponse pour faciliter la nouvelle tentative
         document.getElementById('reponse_libre').value = '';
