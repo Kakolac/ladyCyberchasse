@@ -79,6 +79,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $error_message = "Le délai d'indice doit être entre 1 et 60 minutes";
             }
             break;
+
+        // NOUVELLE ACTION : Supprimer le lieu
+        case 'supprimer_lieu':
+            $lieu_id = $_POST['lieu_id'];
+            
+            // Vérifier que le lieu n'est pas obligatoire
+            $stmt = $pdo->prepare("SELECT enigme_requise FROM lieux WHERE id = ?");
+            $stmt->execute([$lieu_id]);
+            $lieu = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($lieu && $lieu['enigme_requise']) {
+                $error_message = "Impossible de supprimer un lieu obligatoire. Décochez d'abord 'Énigme obligatoire'.";
+            } else {
+                $stmt = $pdo->prepare("DELETE FROM lieux WHERE id = ?");
+                if ($stmt->execute([$lieu_id])) {
+                    $success_message = "Lieu supprimé avec succès !";
+                } else {
+                    $error_message = "Erreur lors de la suppression du lieu";
+                }
+            }
+            break;
     }
 }
 
@@ -322,16 +343,35 @@ include 'includes/header.php';
                                                         <i class="fas fa-unlink"></i> Supprimer l'affectation
                                                     </button>
                                                 </form>
+                                                
+                                                <!-- NOUVEAU : Bouton supprimer le lieu -->
+                                                <form method="POST" style="display: inline;" onsubmit="return confirm('⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer définitivement ce lieu ? Cette action est irréversible et supprimera également toutes les données associées.')">
+                                                    <input type="hidden" name="action" value="supprimer_lieu">
+                                                    <input type="hidden" name="lieu_id" value="<?php echo $lieu['id']; ?>">
+                                                    <button type="submit" class="btn btn-danger btn-sm" 
+                                                            <?php echo $lieu['enigme_requise'] ? 'disabled title="Impossible de supprimer un lieu obligatoire"' : ''; ?>>
+                                                        <i class="fas fa-trash"></i> Supprimer le lieu
+                                                    </button>
+                                                </form>
                                             <?php else: ?>
                                                 <!-- Actions pour lieu sans énigme -->
                                                 <button type="button" class="btn btn-success btn-sm" 
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#affecterEnigmeModal"
                                                         data-lieu-id="<?php echo $lieu['id']; ?>"
-                                                        data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
                                                         data-enigme-id="">
                                                     <i class="fas fa-plus"></i> Affecter une énigme
                                                 </button>
+                                                
+                                                <!-- NOUVEAU : Bouton supprimer le lieu (pour lieu sans énigme) -->
+                                                <form method="POST" style="display: inline;" onsubmit="return confirm('⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer définitivement ce lieu ? Cette action est irréversible.')">
+                                                    <input type="hidden" name="action" value="supprimer_lieu">
+                                                    <input type="hidden" name="lieu_id" value="<?php echo $lieu['id']; ?>">
+                                                    <button type="submit" class="btn btn-danger btn-sm"
+                                                            <?php echo $lieu['enigme_requise'] ? 'disabled title="Impossible de supprimer un lieu obligatoire"' : ''; ?>>
+                                                        <i class="fas fa-trash"></i> Supprimer le lieu
+                                                    </button>
+                                                </form>
                                             <?php endif; ?>
                                         </div>
                                     </div>
