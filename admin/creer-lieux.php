@@ -8,6 +8,9 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     exit();
 }
 
+$success_message = '';
+$error_message = '';
+
 // Traitement de la création du lieu
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nom = trim($_POST['nom']);
@@ -26,15 +29,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (!empty($nom) && $ordre > 0 && $temps_limite > 0) {
         try {
+            // 1. Créer le lieu en base de données
             $stmt = $pdo->prepare("
                 INSERT INTO lieux (nom, slug, description, ordre, temps_limite, enigme_requise, statut, delai_indice) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             if ($stmt->execute([$nom, $slug, $description, $ordre, $temps_limite, $enigme_requise, $statut, $delai_indice])) {
-                $success_message = "Lieu créé avec succès !";
+                $lieu_id = $pdo->lastInsertId();
+                
+                // 2. Créer le répertoire du lieu
+                $source_dir = '../templates/TemplateLieu';
+                $target_dir = "../lieux/$slug";
+                
+                if (!is_dir($target_dir)) {
+                    if (mkdir($target_dir, 0755, true)) {
+                        // 3. Copier tous les fichiers du template
+                        $files = ['index.php', 'enigme.php', 'header.php', 'footer.php', 'style.css'];
+                        
+                        foreach ($files as $file) {
+                            $source_file = "$source_dir/$file";
+                            $target_file = "$target_dir/$file";
+                            
+                            if (file_exists($source_file)) {
+                                $content = file_get_contents($source_file);
+                                
+                                // 4. Remplacer les variables dans les fichiers PHP
+                                if (in_array($file, ['index.php', 'enigme.php'])) {
+                                    // Remplacer 'direction' par le nouveau slug
+                                    $content = str_replace("'direction'", "'$slug'", $content);
+                                    
+                                    // Remplacer aussi les liens dans index.php
+                                    if ($file === 'index.php') {
+                                        $content = str_replace("../../enigme_launcher.php?lieu=direction", "../../enigme_launcher.php?lieu=$slug", $content);
+                                    }
+                                    
+                                    // Remplacer dans enigme.php si il y a des références
+                                    if ($file === 'enigme.php') {
+                                        $content = str_replace("'direction'", "'$slug'", $content);
+                                    }
+                                }
+                                
+                                // 5. Écrire le fichier modifié
+                                if (file_put_contents($target_file, $content)) {
+                                    // Fichier copié et modifié avec succès
+                                } else {
+                                    throw new Exception("Erreur lors de l'écriture du fichier $file");
+                                }
+                            }
+                        }
+                        
+                        $success_message = "✅ Lieu '$nom' créé avec succès !";
+                        $success_message .= "<br>📁 Répertoire créé : lieux/$slug/";
+                        $success_message .= "<br>🔧 Variables automatiquement renommées de 'direction' vers '$slug'";
+                        $success_message .= "<br>🗄️ Lieu ajouté en base de données (ID: $lieu_id)";
+                        $success_message .= "<br>🌐 <a href='../lieux/$slug/' target='_blank'>Voir le lieu créé</a>";
+                        
+                    } else {
+                        throw new Exception("Impossible de créer le répertoire $target_dir");
+                    }
+                } else {
+                    throw new Exception("Le répertoire $target_dir existe déjà");
+                }
+                
             } else {
-                $error_message = "Erreur lors de la création du lieu";
+                $error_message = "Erreur lors de la création du lieu en base de données";
             }
         } catch (Exception $e) {
             $error_message = "Erreur : " . $e->getMessage();
@@ -161,8 +220,13 @@ try {
                             
                             <div class="alert alert-info">
                                 <i class="fas fa-info-circle"></i>
-                                <strong>Conseil :</strong> Vous pourrez affecter une énigme à ce lieu après sa création 
-                                depuis la page de gestion des lieux.
+                                <strong>Nouveau !</strong> Ce script crée maintenant automatiquement :
+                                <ul class="mb-0 mt-2">
+                                    <li>✅ L'enregistrement en base de données</li>
+                                    <li>📁 Le dossier physique du lieu</li>
+                                    <li>🔧 Tous les fichiers nécessaires (index.php, enigme.php, etc.)</li>
+                                    <li>🌐 Une page web immédiatement accessible</li>
+                                </ul>
                             </div>
                         </div>
                         
@@ -171,7 +235,7 @@ try {
                                 <i class="fas fa-times"></i> Annuler
                             </a>
                             <button type="submit" class="btn btn-success">
-                                <i class="fas fa-save"></i> Créer le lieu
+                                <i class="fas fa-save"></i> Créer le lieu complet
                             </button>
                         </div>
                     </form>
