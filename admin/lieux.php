@@ -84,19 +84,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'supprimer_lieu':
             $lieu_id = $_POST['lieu_id'];
             
-            // Vérifier que le lieu n'est pas obligatoire
-            $stmt = $pdo->prepare("SELECT enigme_requise FROM lieux WHERE id = ?");
+            // Récupérer les informations du lieu avant suppression
+            $stmt = $pdo->prepare("SELECT nom, enigme_requise FROM lieux WHERE id = ?");
             $stmt->execute([$lieu_id]);
             $lieu = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($lieu && $lieu['enigme_requise']) {
                 $error_message = "Impossible de supprimer un lieu obligatoire. Décochez d'abord 'Énigme obligatoire'.";
             } else {
+                // Supprimer le répertoire physique s'il existe
+                $repertoire_lieu = '../lieux/' . strtolower(str_replace(' ', '_', $lieu['nom']));
+                $repertoire_supprime = false;
+                
+                if (is_dir($repertoire_lieu)) {
+                    if (deleteDirectory($repertoire_lieu)) {
+                        $repertoire_supprime = true;
+                    } else {
+                        // Erreur suppression répertoire mais on continue
+                        $warning_message = "Attention : Impossible de supprimer le répertoire physique du lieu.";
+                    }
+                } else {
+                    // Répertoire n'existe pas, notification mais on continue
+                    $info_message = "Information : Le répertoire physique du lieu n'existe pas.";
+                }
+                
+                // Supprimer de la BDD
                 $stmt = $pdo->prepare("DELETE FROM lieux WHERE id = ?");
                 if ($stmt->execute([$lieu_id])) {
-                    $success_message = "Lieu supprimé avec succès !";
+                    if ($repertoire_supprime) {
+                        $success_message = "Lieu et répertoire supprimés avec succès !";
+                    } else {
+                        $success_message = "Lieu supprimé de la BDD avec succès !";
+                    }
                 } else {
-                    $error_message = "Erreur lors de la suppression du lieu";
+                    $error_message = "Erreur lors de la suppression du lieu en base de données";
                 }
             }
             break;
@@ -140,6 +161,24 @@ try {
     $prochain_ordre = 1;
 }
 
+// Fonction pour supprimer un répertoire et son contenu
+function deleteDirectory($dir) {
+    if (!is_dir($dir)) {
+        return false;
+    }
+    
+    $files = array_diff(scandir($dir), array('.', '..'));
+    foreach ($files as $file) {
+        $path = $dir . DIRECTORY_SEPARATOR . $file;
+        if (is_dir($path)) {
+            deleteDirectory($path);
+        } else {
+            unlink($path);
+        }
+    }
+    return rmdir($dir);
+}
+
 // Configuration pour le header
 $page_title = 'Gestion des Lieux - Administration Cyberchasse';
 $current_page = 'lieux';
@@ -162,6 +201,22 @@ include 'includes/header.php';
         <?php if (isset($error_message)): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <?php echo $error_message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($warning_message)): ?>
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="fas fa-exclamation-triangle"></i>
+                <?php echo $warning_message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($info_message)): ?>
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <i class="fas fa-info-circle"></i>
+                <?php echo $info_message; ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
