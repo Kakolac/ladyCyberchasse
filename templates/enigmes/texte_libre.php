@@ -248,14 +248,14 @@ function consulterIndice() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Remplacer alert par SweetAlert2
-            Swal.fire({
-                icon: 'success',
-                title: '✅ Succès !',
-                text: 'Consultation d\'indice enregistrée',
-                timer: 2000,
-                showConfirmButton: false
-            });
+            // SUPPRIMER cette popup de succès
+            // Swal.fire({
+            //     icon: 'success',
+            //     title: '✅ Succès !',
+            //     text: 'Consultation d\'indice enregistrée',
+            //     timer: 2000,
+            //     showConfirmButton: false
+            // });
         } else {
             Swal.fire({
                 icon: 'error',
