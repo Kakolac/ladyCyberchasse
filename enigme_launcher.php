@@ -27,9 +27,10 @@ if (!$equipe) {
     exit();
 }
 
-// Récupération du lieu avec son énigme
+// Récupération du lieu avec son énigme et son délai d'indice
 $stmt = $pdo->prepare("
-    SELECT l.*, e.id as enigme_id, e.type_enigme_id, te.template, te.nom as type_nom
+    SELECT l.*, e.id as enigme_id, e.type_enigme_id, te.template, te.nom as type_nom,
+           COALESCE(l.delai_indice, 6) as delai_indice
     FROM lieux l 
     LEFT JOIN enigmes e ON l.enigme_id = e.id 
     LEFT JOIN types_enigmes te ON e.type_enigme_id = te.id
@@ -118,9 +119,10 @@ if (!$enigme_resolue && $lieu['enigme_id']) {
             $indice_start_time = $_SESSION[$indice_session_key];
         }
         
-        // Calculer si l'indice est disponible (6 minutes depuis le début de l'énigme)
+        // Calculer si l'indice est disponible (délai dynamique depuis la BDD)
         $enigme_elapsed_time = time() - $enigme_start_time;
-        $indice_available = ($enigme_elapsed_time >= 360); // 6 minutes = 360 secondes
+        $delai_indice_secondes = $lieu['delai_indice'] * 60; // Convertir en secondes
+        $indice_available = ($enigme_elapsed_time >= $delai_indice_secondes);
     }
     
     // Passer les deux timers au template
@@ -214,11 +216,12 @@ const ENIGME_RESOLUE = <?php echo $enigme_resolue ? 'true' : 'false'; ?>;
 const ENIGME_START_TIME = <?php echo $enigme_start_time ?: 'null'; ?>;
 const INDICE_START_TIME = <?php echo $indice_start_time ?: 'null'; ?>;
 const INDICE_AVAILABLE = <?php echo $indice_available ? 'true' : 'false'; ?>;
+const DELAI_INDICE_SECONDES = <?php echo $lieu['delai_indice'] * 60; ?>; // Délai dynamique en secondes
 
 // Démarrer le timer seulement si l'énigme n'est pas résolue
 <?php if (!$enigme_resolue && $lieu['enigme_id']): ?>
     // Timer principal de l'énigme (12 minutes)
-    startTimer(720, 'timer');
+    // startTimer(720, 'timer'); // COMMENTÉ - À réactiver plus tard
     
     // Timer pour l'indice - NE PAS REDÉMARRER SI DÉJÀ ACTIF
     if (!INDICE_AVAILABLE && ENIGME_START_TIME && INDICE_START_TIME) {

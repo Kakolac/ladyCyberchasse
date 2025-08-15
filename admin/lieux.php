@@ -62,6 +62,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $error_message = "Erreur lors de la suppression de l'affectation";
             }
             break;
+
+        // NOUVELLE ACTION : Mettre à jour le délai d'indice
+        case 'update_delai_indice':
+            $lieu_id = $_POST['lieu_id'];
+            $delai_indice = (int)$_POST['delai_indice'];
+            
+            if ($delai_indice >= 1 && $delai_indice <= 60) { // Limite entre 1 et 60 minutes
+                $stmt = $pdo->prepare("UPDATE lieux SET delai_indice = ? WHERE id = ?");
+                if ($stmt->execute([$delai_indice, $lieu_id])) {
+                    $success_message = "Délai d'indice mis à jour avec succès !";
+                } else {
+                    $error_message = "Erreur lors de la mise à jour du délai d'indice";
+                }
+            } else {
+                $error_message = "Le délai d'indice doit être entre 1 et 60 minutes";
+            }
+            break;
     }
 }
 
@@ -69,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 try {
     $stmt = $pdo->query("
         SELECT l.*, e.id as enigme_id, e.titre as enigme_titre, e.actif as enigme_active,
-               te.nom as type_nom, te.template
+               te.nom as type_nom, te.template, COALESCE(l.delai_indice, 6) as delai_indice
         FROM lieux l 
         LEFT JOIN enigmes e ON l.enigme_id = e.id 
         LEFT JOIN types_enigmes te ON e.type_enigme_id = te.id
@@ -235,6 +252,24 @@ include 'includes/header.php';
                                             </div>
                                         </div>
                                         
+                                        <!-- NOUVEAU : Affichage du délai d'indice -->
+                                        <div class="row mb-3">
+                                            <div class="col-12">
+                                                <small class="text-muted">Délai d'indice :</small>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <strong><?php echo $lieu['delai_indice']; ?> minutes</strong>
+                                                    <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#delaiIndiceModal"
+                                                            data-lieu-id="<?php echo $lieu['id']; ?>"
+                                                            data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
+                                                            data-delai-actuel="<?php echo $lieu['delai_indice']; ?>">
+                                                        <i class="fas fa-clock"></i> Modifier
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <?php if ($lieu['enigme_id']): ?>
                                             <!-- Énigme affectée -->
                                             <div class="enigme-preview mb-3">
@@ -362,6 +397,52 @@ include 'includes/header.php';
         </div>
     </div>
 
+    <!-- NOUVEAU : Modal de modification du délai d'indice -->
+    <div class="modal fade" id="delaiIndiceModal" tabindex="-1" aria-labelledby="delaiIndiceModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="delaiIndiceModalLabel">
+                        <i class="fas fa-clock"></i> Modifier le Délai d'Indice
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="update_delai_indice">
+                        <input type="hidden" name="lieu_id" id="delaiLieuId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Lieu</label>
+                            <input type="text" class="form-control" id="delaiLieuNom" readonly>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="delai_indice" class="form-label">Délai d'indice (en minutes)</label>
+                            <input type="number" class="form-control" name="delai_indice" id="delai_indice" 
+                                   min="1" max="60" required>
+                            <small class="text-muted">
+                                Temps d'attente avant que l'indice soit disponible (entre 1 et 60 minutes)
+                            </small>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Conseil :</strong> Un délai plus court permet un accès plus rapide à l'indice, 
+                            un délai plus long encourage la réflexion avant de consulter l'aide.
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Mettre à jour
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts spécifiques à cette page -->
     <script>
         // Gestion du modal d'affectation d'énigme
@@ -384,6 +465,22 @@ include 'includes/header.php';
                     } else {
                         document.getElementById('enigme_id').value = '';
                     }
+                });
+            }
+            
+            // NOUVEAU : Gestion du modal de délai d'indice
+            const delaiIndiceModal = document.getElementById('delaiIndiceModal');
+            if (delaiIndiceModal) {
+                delaiIndiceModal.addEventListener('show.bs.modal', function (event) {
+                    const button = event.relatedTarget;
+                    const lieuId = button.getAttribute('data-lieu-id');
+                    const lieuNom = button.getAttribute('data-lieu-nom');
+                    const delaiActuel = button.getAttribute('data-delai-actuel');
+                    
+                    // Mettre à jour le modal
+                    document.getElementById('delaiLieuId').value = lieuId;
+                    document.getElementById('delaiLieuNom').value = lieuNom;
+                    document.getElementById('delai_indice').value = delaiActuel;
                 });
             }
         });

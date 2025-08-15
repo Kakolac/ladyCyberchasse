@@ -26,12 +26,11 @@ $indice_session_key = "indice_start_{$lieu['id']}_{$equipe['id']}";
 $enigme_start_time = $_SESSION[$enigme_session_key];
 $indice_start_time = $_SESSION[$indice_session_key];
 
-// Calculer les temps écoulés
+// Calculer les temps écoulés avec le délai dynamique
 $enigme_elapsed_time = time() - $enigme_start_time;
-$indice_elapsed_time = time() - $indice_start_time;
-
-$indice_available = ($indice_elapsed_time >= 360); // 6 minutes pour l'indice
-$remaining_time = max(0, 360 - $indice_elapsed_time); // Temps restant pour l'indice
+$delai_indice_secondes = $lieu['delai_indice'] * 60; // Délai dynamique en secondes
+$indice_available = ($enigme_elapsed_time >= $delai_indice_secondes);
+$remaining_time = max(0, $delai_indice_secondes - $enigme_elapsed_time);
 
 // Debug pour vérifier la persistance
 $debug_info = [
@@ -83,7 +82,7 @@ $debug_info = [
                 <div class="mt-2">
                     <small class="text-muted">
                         <i class="fas fa-info-circle"></i> 
-                        L'indice sera disponible après 6 minutes de réflexion
+                        L'indice sera disponible après <?php echo $lieu['delai_indice']; ?> minutes de réflexion
                     </small>
                 </div>
             <?php endif; ?>
@@ -112,10 +111,11 @@ $debug_info = [
 let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
 let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
 
-// Variables PHP passées au JavaScript
+// Variables PHP passées au JavaScript - SUPPRIMER la redéclaration de DELAI_INDICE_SECONDES
 const LIEU_ID = <?php echo $lieu['id'] ?? 'null'; ?>;
 const EQUIPE_ID = <?php echo $equipe['id'] ?? 'null'; ?>;
 const ENIGME_ID = <?php echo $lieu['enigme_id'] ?? 'null'; ?>;
+// SUPPRIMER cette ligne : const DELAI_INDICE_SECONDES = <?php echo $lieu['delai_indice'] * 60; ?>;
 
 // Fonction pour démarrer le timer de l'indice
 function startIndiceTimer() {
@@ -143,7 +143,8 @@ function startIndiceTimer() {
     const countdown = setInterval(() => {
         const now = Math.floor(Date.now() / 1000);
         const enigmeStart = <?php echo $enigme_start_time; ?>;
-        const remaining = 360 - (now - enigmeStart); // 6 minutes depuis le début de l'énigme
+        // Utiliser la variable globale DELAI_INDICE_SECONDES depuis enigme_launcher.php
+        const remaining = DELAI_INDICE_SECONDES - (now - enigmeStart);
         
         if (remaining <= 0) {
             // L'indice est maintenant disponible
