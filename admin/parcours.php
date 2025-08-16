@@ -67,7 +67,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $stmt = $pdo->prepare("UPDATE parcours SET statut = ? WHERE id = ?");
                 if ($stmt->execute([$new_status, $parcours_id])) {
-                    $success_message = "Statut mis à jour avec succès !";
+                    // Vérifier si c'est la fin du parcours pour cette équipe
+                    if ($new_status === 'termine') {
+                        // Récupérer l'équipe et le lieu de ce parcours
+                        $stmt = $pdo->prepare("SELECT equipe_id, lieu_id FROM parcours WHERE id = ?");
+                        $stmt->execute([$parcours_id]);
+                        $parcours_info = $stmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($parcours_info) {
+                            // Vérifier si c'est le dernier lieu de l'équipe
+                            $stmt = $pdo->prepare("
+                                SELECT COUNT(*) as total_lieux, 
+                                       SUM(CASE WHEN statut = 'termine' THEN 1 ELSE 0 END) as lieux_termines
+                                FROM parcours 
+                                WHERE equipe_id = ?
+                            ");
+                            $stmt->execute([$parcours_info['equipe_id']]);
+                            $stats = $stmt->fetch(PDO::FETCH_ASSOC);
+                            
+                            // Debug: afficher les informations
+                            $debug_info = "Équipe ID: {$parcours_info['equipe_id']}, Total lieux: {$stats['total_lieux']}, Lieux terminés: {$stats['lieux_termines']}";
+                            
+                            // Si tous les lieux sont terminés, marquer le parcours comme terminé
+                            if ($stats['total_lieux'] > 0 && $stats['lieux_termines'] == $stats['total_lieux']) {
+                                // Mettre à jour tous les parcours de cette équipe avec le statut "parcours_termine"
+                                $stmt = $pdo->prepare("UPDATE parcours SET statut = 'parcours_termine' WHERE equipe_id = ?");
+                                if ($stmt->execute([$parcours_info['equipe_id']])) {
+                                    $success_message = "Statut mis à jour avec succès ! 🎉 Parcours automatiquement marqué comme terminé ! ({$debug_info})";
+                                } else {
+                                    $success_message = "Statut mis à jour avec succès ! ⚠️ Erreur lors de la mise à jour automatique du parcours. ({$debug_info})";
+                                }
+                            } else {
+                                $success_message = "Statut mis à jour avec succès ! 📍 Progression: {$stats['lieux_termines']}/{$stats['total_lieux']} lieux terminés. ({$debug_info})";
+                            }
+                        }
+                    } else {
+                        $success_message = "Statut mis à jour avec succès !";
+                    }
+                    
                     // Recharger les parcours
                     $stmt = $pdo->query("
                         SELECT p.*, e.nom as equipe_nom, l.nom as lieu_nom, l.slug as lieu_slug
@@ -235,6 +272,7 @@ include 'includes/header.php';
         padding: 4px 8px;
         font-size: 11px;
     }
+    .status-parcours_termine { background: #17a2b8; color: #fff; font-weight: bold; }
 </style>
 
 <!-- Titre de la page -->
@@ -516,6 +554,7 @@ include 'includes/header.php';
                                 <option value="en_cours">▶️ En cours</option>
                                 <option value="termine">✅ Terminé</option>
                                 <option value="echec">❌ Échec</option>
+                                <option value="parcours_termine">🏁 Parcours Terminé</option>
                             </select>
                         </div>
                         
@@ -526,6 +565,7 @@ include 'includes/header.php';
                                 <li><strong>En cours :</strong> Lieu en cours de visite</li>
                                 <li><strong>Terminé :</strong> Lieu visité avec succès</li>
                                 <li><strong>Échec :</strong> Lieu échoué</li>
+                                <li><strong>Parcours Terminé :</strong> Équipe a terminé tous ses lieux</li>
                             </ul>
                         </div>
                     </div>
