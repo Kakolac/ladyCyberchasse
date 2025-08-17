@@ -64,9 +64,10 @@ include './header.php';
                         </div>
                         
                         <div class="text-center">
-                            <a href="../accueil/" class="btn btn-dark btn-lg">
-                                <i class="fas fa-home"></i> Retour à l'accueil
-                            </a>
+                            <p class="mb-3">Vous avez maintenant la possibilité de voyager jusqu'à votre prochaine destination</p>
+                            <button id="qrScannerBtnIndex" class="qr-scanner-btn" onclick="openQRScanner()">
+                                📷 Scanner QR
+                            </button>
                         </div>
                         
                     <?php else: ?>
