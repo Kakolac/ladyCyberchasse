@@ -38,14 +38,33 @@ include 'includes/header.php';
                             📷 Scanner QR
                         </button>
                     </div>
-                    
-                    <div class="text-center mt-3">
-                        <a href="index.php" class="btn btn-primary">Commencer l'aventure</a>
-                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Inclure le composant QR scanner -->
+<?php include 'includes/qr-scanner.php'; ?>
+
+<script>
+// Connexion du bouton Scanner QR principal au composant existant
+document.addEventListener('DOMContentLoaded', function() {
+    const qrScannerBtnMain = document.getElementById('qrScannerBtnMain');
+    if (qrScannerBtnMain) {
+        qrScannerBtnMain.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📱 Bouton scanner principal cliqué');
+            // Utiliser la fonction globale du composant QR scanner
+            if (typeof openQRScanner === 'function') {
+                openQRScanner();
+            } else {
+                console.error('Fonction openQRScanner non disponible');
+            }
+        });
+    }
+});
+</script>
 
 <?php include 'includes/footer.php'; ?>
