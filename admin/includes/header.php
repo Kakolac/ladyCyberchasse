@@ -237,6 +237,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
         </div>
         
         <!-- Navigation principale -->
+        <?php /*
         <nav class="navbar navbar-expand-lg admin-navbar">
             <div class="container-fluid">
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNavbar">
@@ -334,6 +335,7 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                 </div>
             </div>
         </nav>
+        */ ?>
     </header>
 
     <!-- Contenu principal -->
