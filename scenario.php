@@ -31,7 +31,17 @@ include 'includes/header.php';
                     Ce jeu se déroulant dans l'espace du lycée, votre comportement doit être exemplaire. <br>
             Soyez irréprochables et amusez-vous bien !</p>
                     <p>Bonne chance, et que la chasse commence !</p>
-                    <a href="index.php" class="btn btn-primary"></a>
+                    
+                    <div class="text-center">
+                        <p class="mb-3">Vous avez maintenant la possibilité de voyager jusqu'à votre prochaine destination</p>
+                        <button id="qrScannerBtnMain" class="qr-scanner-btn">
+                            📷 Scanner QR
+                        </button>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <a href="index.php" class="btn btn-primary">Commencer l'aventure</a>
+                    </div>
                 </div>
             </div>
         </div>
