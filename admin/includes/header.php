@@ -191,45 +191,18 @@ $current_page = basename($_SERVER['PHP_SELF'], '.php');
                     </div>
                 </div>
                 
-                <!-- Statistiques rapides -->
-                <div class="col-md-4 d-none d-md-block">
-                    <div class="row text-center">
-                        <div class="col-4">
-                            <div class="text-white-50">
-                                <i class="fas fa-users"></i>
-                                <small>Équipes</small>
-                            </div>
-                            <div class="text-white fw-bold" id="quick-stats-teams">-</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-white-50">
-                                <i class="fas fa-route"></i>
-                                <small>Parcours</small>
-                            </div>
-                            <div class="text-white fw-bold" id="quick-stats-parcours">-</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="text-white-50">
-                                <i class="fas fa-flag-checkered"></i>
-                                <small>Terminés</small>
-                            </div>
-                            <div class="text-white fw-bold" id="quick-stats-finished">-</div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Menu utilisateur -->
-                <div class="col-md-4 text-end">
+                <div class="col-md-8 text-end">
                     <div class="dropdown user-menu">
                         <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown">
                             <i class="fas fa-user-shield"></i>
                             Administrateur
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="../index.php"><i class="fas fa-home"></i>Accueil public</a></li>
-                            <li><a class="dropdown-item" href="../scenario.php"><i class="fas fa-gamepad"></i>Voir le jeu</a></li>
+                            <li><a class="dropdown-item" href="../../index.php"><i class="fas fa-home"></i>Accueil public</a></li>
+                            <li><a class="dropdown-item" href="../../scenario.php"><i class="fas fa-gamepad"></i>Voir le jeu</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="../logout.php"><i class="fas fa-sign-out-alt"></i>Déconnexion</a></li>
+                            <li><a class="dropdown-item" href="../../logout.php"><i class="fas fa-sign-out-alt"></i>Déconnexion</a></li>
                         </ul>
                     </div>
                 </div>
