@@ -65,7 +65,7 @@ include './header.php';
                         
                         <div class="text-center">
                             <p class="mb-3">Vous avez maintenant la possibilité de voyager jusqu'à votre prochaine destination</p>
-                            <button id="qrScannerBtnIndex" class="qr-scanner-btn" onclick="openQRScanner()">
+                            <button id="qrScannerBtnMain" class="qr-scanner-btn">
                                 📷 Scanner QR
                             </button>
                         </div>
@@ -150,6 +150,24 @@ include './header.php';
 <?php if (!$enigme_resolue): ?>
     startTimer(720, 'timer');
 <?php endif; ?>
+
+// Connexion du bouton Scanner QR principal au composant existant
+document.addEventListener('DOMContentLoaded', function() {
+    const qrScannerBtnMain = document.getElementById('qrScannerBtnMain');
+    if (qrScannerBtnMain) {
+        qrScannerBtnMain.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📱 Bouton scanner principal cliqué');
+            // Utiliser la fonction globale du composant QR scanner
+            if (typeof openQRScanner === 'function') {
+                openQRScanner();
+            } else {
+                console.error('Fonction openQRScanner non disponible');
+            }
+        });
+    }
+});
 </script>
 
 <?php include './footer.php'; ?>
