@@ -9,7 +9,7 @@ require_once '../../config/connexion.php';
 
 // Récupération des informations de l'équipe et du lieu
 $team_name = $_SESSION['team_name'];
-$lieu_slug = 'salon';
+$lieu_slug = 'le_s';
 
 // Récupération de l'équipe
 $stmt = $pdo->prepare("SELECT id FROM equipes WHERE nom = ?");
@@ -183,7 +183,7 @@ function updateParcoursStatus(success) {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            lieu: 'salon',
+            lieu: 'le_s',
             team: '<?php echo $_SESSION["team_name"]; ?>',
             success: success,
             score: 10

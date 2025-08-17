@@ -8,29 +8,44 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     exit();
 }
 
+// Inclusion des gestionnaires
+require_once 'enigmes/handlers/qcm_handler.php';
+require_once 'enigmes/handlers/texte_libre_handler.php';
+require_once 'enigmes/handlers/calcul_handler.php';
+require_once 'enigmes/handlers/image_handler.php';
+
 // Traitement des actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     switch ($_POST['action']) {
         case 'create_enigme':
             $type_enigme_id = $_POST['type_enigme_id'];
             $titre = trim($_POST['titre']);
-            $donnees_json = $_POST['donnees_json'];
             
-            if (!empty($type_enigme_id) && !empty($titre) && !empty($donnees_json)) {
-                // Validation JSON
-                $donnees = json_decode($donnees_json, true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $stmt = $pdo->prepare("INSERT INTO enigmes (type_enigme_id, titre, donnees) VALUES (?, ?, ?)");
-                    if ($stmt->execute([$type_enigme_id, $titre, $donnees_json])) {
-                        $success_message = "Énigme créée avec succès !";
-                    } else {
-                        $error_message = "Erreur lors de la création de l'énigme";
-                    }
+            // Debug : afficher les données reçues
+            error_log("Création d'énigme - Type: " . $type_enigme_id);
+            error_log("Création d'énigme - Titre: " . $titre);
+            error_log("Création d'énigme - POST data: " . print_r($_POST, true));
+            
+            // Validation selon le type
+            $errors = validateEnigmeData($_POST, $type_enigme_id);
+            
+            if (empty($errors)) {
+                // Génération automatique du JSON selon le type
+                $donnees_json = generateEnigmeJSON($_POST, $type_enigme_id);
+                
+                error_log("Création d'énigme - JSON généré: " . $donnees_json);
+                
+                $stmt = $pdo->prepare("INSERT INTO enigmes (type_enigme_id, titre, donnees) VALUES (?, ?, ?)");
+                if ($stmt->execute([$type_enigme_id, $titre, $donnees_json])) {
+                    $success_message = "Énigme créée avec succès !";
+                    error_log("Création d'énigme - Succès");
                 } else {
-                    $error_message = "Format JSON invalide";
+                    $error_message = "Erreur lors de la création de l'énigme";
+                    error_log("Création d'énigme - Erreur SQL: " . print_r($stmt->errorInfo(), true));
                 }
             } else {
-                $error_message = "Tous les champs sont obligatoires";
+                $error_message = implode(', ', $errors);
+                error_log("Création d'énigme - Erreurs de validation: " . $error_message);
             }
             break;
             
@@ -38,23 +53,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $enigme_id = $_POST['enigme_id'];
             $type_enigme_id = $_POST['type_enigme_id'];
             $titre = trim($_POST['titre']);
-            $donnees_json = $_POST['donnees_json'];
             $actif = isset($_POST['actif']) ? 1 : 0;
             
-            if (!empty($enigme_id) && !empty($type_enigme_id) && !empty($titre) && !empty($donnees_json)) {
-                $donnees = json_decode($donnees_json, true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $stmt = $pdo->prepare("UPDATE enigmes SET type_enigme_id = ?, titre = ?, donnees = ?, actif = ? WHERE id = ?");
-                    if ($stmt->execute([$type_enigme_id, $titre, $donnees_json, $actif, $enigme_id])) {
-                        $success_message = "Énigme mise à jour avec succès !";
-                    } else {
-                        $error_message = "Erreur lors de la mise à jour de l'énigme";
-                    }
+            // Validation selon le type
+            $errors = validateEnigmeData($_POST, $type_enigme_id);
+            
+            if (empty($errors)) {
+                // Génération automatique du JSON selon le type
+                $donnees_json = generateEnigmeJSON($_POST, $type_enigme_id);
+                
+                $stmt = $pdo->prepare("UPDATE enigmes SET type_enigme_id = ?, titre = ?, donnees = ?, actif = ? WHERE id = ?");
+                if ($stmt->execute([$type_enigme_id, $titre, $donnees_json, $actif, $enigme_id])) {
+                    $success_message = "Énigme mise à jour avec succès !";
                 } else {
-                    $error_message = "Format JSON invalide";
+                    $error_message = "Erreur lors de la mise à jour de l'énigme";
                 }
             } else {
-                $error_message = "Tous les champs sont obligatoires";
+                $error_message = implode(', ', $errors);
             }
             break;
             
@@ -77,6 +92,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $error_message = "Impossible de supprimer cette énigme : elle est utilisée par " . $count . " lieu(x)";
             }
             break;
+    }
+}
+
+// Fonction de validation selon le type d'énigme
+function validateEnigmeData($post_data, $type_enigme_id) {
+    switch ($type_enigme_id) {
+        case '1': // QCM
+            return QCMHandler::validate($post_data);
+        case '2': // Texte Libre
+            return TexteLibreHandler::validate($post_data);
+        case '3': // Calcul
+            return CalculHandler::validate($post_data);
+        case '4': // Image
+            return ImageHandler::validate($post_data);
+        default:
+            return ["Type d'énigme non reconnu"];
+    }
+}
+
+// Fonction pour générer automatiquement le JSON selon le type d'énigme
+function generateEnigmeJSON($post_data, $type_enigme_id) {
+    switch ($type_enigme_id) {
+        case '1': // QCM
+            return QCMHandler::generateJSON($post_data);
+        case '2': // Texte Libre
+            return TexteLibreHandler::generateJSON($post_data);
+        case '3': // Calcul
+            return CalculHandler::generateJSON($post_data);
+        case '4': // Image
+            return ImageHandler::generateJSON($post_data);
+        default:
+            return json_encode([]);
     }
 }
 
@@ -134,7 +181,8 @@ include 'includes/header.php';
             .enigme-card:hover { transform: translateY(-5px); }
             .modal-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
             .btn-close { filter: invert(1); }
-            .json-editor { font-family: 'Courier New', monospace; font-size: 0.9em; }
+            .form-type-container { display: none; }
+            .form-type-container.active { display: block; }
         </style>
 
         <!-- En-tête de la page -->
@@ -268,7 +316,6 @@ include 'includes/header.php';
                                                     <input type="hidden" name="enigme_id" value="<?php echo $enigme['id']; ?>">
                                                     <input type="hidden" name="type_enigme_id" value="<?php echo $enigme['type_enigme_id']; ?>">
                                                     <input type="hidden" name="titre" value="<?php echo htmlspecialchars($enigme['titre']); ?>">
-                                                    <input type="hidden" name="donnees_json" value="<?php echo htmlspecialchars($enigme['donnees']); ?>">
                                                     <input type="hidden" name="actif" value="0">
                                                     <button type="submit" class="btn btn-warning btn-sm">
                                                         <i class="fas fa-pause"></i> Désactiver
@@ -280,7 +327,6 @@ include 'includes/header.php';
                                                     <input type="hidden" name="enigme_id" value="<?php echo $enigme['id']; ?>">
                                                     <input type="hidden" name="type_enigme_id" value="<?php echo $enigme['type_enigme_id']; ?>">
                                                     <input type="hidden" name="titre" value="<?php echo htmlspecialchars($enigme['titre']); ?>">
-                                                    <input type="hidden" name="donnees_json" value="<?php echo htmlspecialchars($enigme['donnees']); ?>">
                                                     <input type="hidden" name="actif" value="1">
                                                     <button type="submit" class="btn btn-success btn-sm">
                                                         <i class="fas fa-play"></i> Activer
@@ -320,38 +366,29 @@ include 'includes/header.php';
                     <div class="modal-body">
                         <input type="hidden" name="action" value="create_enigme">
                         
-                        <div class="row">
+                        <div class="row mb-3">
                             <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="type_enigme_id" class="form-label">Type d'énigme</label>
-                                    <select class="form-select" name="type_enigme_id" id="type_enigme_id" required>
-                                        <option value="">Sélectionner un type</option>
-                                        <?php foreach ($types_enigmes as $type): ?>
-                                            <option value="<?php echo $type['id']; ?>"><?php echo htmlspecialchars($type['nom']); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
+                                <label for="type_enigme_id" class="form-label">Type d'énigme</label>
+                                <select class="form-select" name="type_enigme_id" id="type_enigme_id" required>
+                                    <option value="">Sélectionner un type</option>
+                                    <?php foreach ($types_enigmes as $type): ?>
+                                        <option value="<?php echo $type['id']; ?>"><?php echo htmlspecialchars($type['nom']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                             <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="titre" class="form-label">Titre de l'énigme</label>
-                                    <input type="text" class="form-control" name="titre" id="titre" required 
-                                           placeholder="Ex: Question sur la cybersécurité">
-                                </div>
+                                <label for="titre" class="form-label">Titre de l'énigme</label>
+                                <input type="text" class="form-control" name="titre" id="titre" required 
+                                       placeholder="Ex: Question sur la cybersécurité">
                             </div>
                         </div>
                         
-                        <div class="mb-3">
-                            <label for="donnees_json" class="form-label">Données JSON</label>
-                            <textarea class="form-control json-editor" name="donnees_json" id="donnees_json" rows="10" required 
-                                      placeholder='{"question": "Votre question ici", "reponse_correcte": "A", "options": {"A": "Option A", "B": "Option B", "C": "Option C", "D": "Option D"}}'></textarea>
-                            <small class="text-muted">Format JSON valide selon le type d'énigme sélectionné</small>
-                        </div>
+                        <!-- Inclusion des formulaires spécifiques -->
+                        <?php include 'enigmes/forms/qcm_form.php'; ?>
+                        <?php include 'enigmes/forms/texte_libre_form.php'; ?>
+                        <?php include 'enigmes/forms/calcul_form.php'; ?>
+                        <?php include 'enigmes/forms/image_form.php'; ?>
                         
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i>
-                            <strong>Conseil :</strong> Le format JSON dépend du type d'énigme. Consultez la documentation du type pour connaître la structure attendue.
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
@@ -379,28 +416,163 @@ include 'includes/header.php';
                         <input type="hidden" name="action" value="update_enigme">
                         <input type="hidden" name="enigme_id" id="editEnigmeId">
                         
-                        <div class="row">
+                        <div class="row mb-3">
                             <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="editTypeEnigmeId" class="form-label">Type d'énigme</label>
-                                    <select class="form-select" name="type_enigme_id" id="editTypeEnigmeId" required>
-                                        <?php foreach ($types_enigmes as $type): ?>
-                                            <option value="<?php echo $type['id']; ?>"><?php echo htmlspecialchars($type['nom']); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
+                                <label for="editTypeEnigmeId" class="form-label">Type d'énigme</label>
+                                <select class="form-select" name="type_enigme_id" id="editTypeEnigmeId" required>
+                                    <?php foreach ($types_enigmes as $type): ?>
+                                        <option value="<?php echo $type['id']; ?>"><?php echo htmlspecialchars($type['nom']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                             <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="editTitre" class="form-label">Titre de l'énigme</label>
-                                    <input type="text" class="form-control" name="titre" id="editTitre" required>
+                                <label for="editTitre" class="form-label">Titre de l'énigme</label>
+                                <input type="text" class="form-control" name="titre" id="editTitre" required>
+                            </div>
+                        </div>
+                        
+                        <!-- Formulaires d'édition spécifiques par type -->
+                        <!-- QCM Édition -->
+                        <div id="edit-form-qcm" class="form-type-container">
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6><i class="fas fa-list-check"></i> Configuration QCM</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="edit_question_qcm" class="form-label">Question</label>
+                                        <textarea class="form-control" name="question_qcm" id="edit_question_qcm" rows="3"></textarea>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="edit_option_a" class="form-label">Option A</label>
+                                                <input type="text" class="form-control" name="option_a" id="edit_option_a">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="edit_option_b" class="form-label">Option B</label>
+                                                <input type="text" class="form-control" name="option_b" id="edit_option_b">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="edit_option_c" class="form-label">Option C</label>
+                                                <input type="text" class="form-control" name="option_c" id="edit_option_c">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="edit_option_d" class="form-label">Option D</label>
+                                                <input type="text" class="form-control" name="option_d" id="edit_option_d">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_reponse_correcte_qcm" class="form-label">Réponse correcte</label>
+                                        <select class="form-select" name="reponse_correcte_qcm" id="edit_reponse_correcte_qcm" required>
+                                            <option value="A">A</option>
+                                            <option value="B">B</option>
+                                            <option value="C">C</option>
+                                            <option value="D">D</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="mb-3">
-                            <label for="editDonneesJson" class="form-label">Données JSON</label>
-                            <textarea class="form-control json-editor" name="donnees_json" id="editDonneesJson" rows="10" required></textarea>
+                        <!-- Texte Libre Édition -->
+                        <div id="edit-form-texte-libre" class="form-type-container">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h6><i class="fas fa-font"></i> Configuration Texte Libre</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="edit_titre_texte" class="form-label">Titre de l'énigme</label>
+                                        <input type="text" class="form-control" name="titre_texte" id="edit_titre_texte">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_indice_texte" class="form-label">Indice</label>
+                                        <textarea class="form-control" name="indice_texte" id="edit_indice_texte" rows="2"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_contexte_texte" class="form-label">Contexte/Description</label>
+                                        <textarea class="form-control" name="contexte_texte" id="edit_contexte_texte" rows="4"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_question_texte" class="form-label">Question</label>
+                                        <textarea class="form-control" name="question_texte" id="edit_question_texte" rows="3"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_reponse_correcte_texte" class="form-label">Réponse correcte</label>
+                                        <input type="text" class="form-control" name="reponse_correcte_texte" id="edit_reponse_correcte_texte">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_reponses_acceptees_texte" class="form-label">Réponses acceptées (séparées par des virgules)</label>
+                                        <input type="text" class="form-control" name="reponses_acceptees_texte" id="edit_reponses_acceptees_texte">
+                                        <small class="text-muted">Séparez plusieurs réponses par des virgules.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Calcul Édition -->
+                        <div id="edit-form-calcul" class="form-type-container">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h6><i class="fas fa-calculator"></i> Configuration Calcul</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="edit_question_calcul" class="form-label">Question/Énoncé</label>
+                                        <textarea class="form-control" name="question_calcul" id="edit_question_calcul" rows="3"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_reponse_correcte_calcul" class="form-label">Réponse correcte</label>
+                                        <input type="text" class="form-control" name="reponse_correcte_calcul" id="edit_reponse_correcte_calcul">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_reponses_acceptees_calcul" class="form-label">Réponses acceptées (séparées par des virgules)</label>
+                                        <input type="text" class="form-control" name="reponses_acceptees_calcul" id="edit_reponses_acceptees_calcul">
+                                        <small class="text-muted">Séparez plusieurs réponses par des virgules.</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_indice_calcul" class="form-label">Indice (optionnel)</label>
+                                        <textarea class="form-control" name="indice_calcul" id="edit_indice_calcul" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Image Édition -->
+                        <div id="edit-form-image" class="form-type-container">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6><i class="fas fa-image"></i> Configuration Image</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="edit_question_image" class="form-label">Question</label>
+                                        <textarea class="form-control" name="question_image" id="edit_question_image" rows="3"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_reponse_correcte_image" class="form-label">Réponse correcte</label>
+                                        <input type="text" class="form-control" name="reponse_correcte_image" id="edit_reponse_correcte_image">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_reponses_acceptees_image" class="form-label">Réponses acceptées (séparées par des virgules)</label>
+                                        <input type="text" class="form-control" name="reponses_acceptees_image" id="edit_reponses_acceptees_image">
+                                        <small class="text-muted">Séparez plusieurs réponses par des virgules.</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_indice_image" class="form-label">Indice (optionnel)</label>
+                                        <textarea class="form-control" name="indice_image" id="edit_indice_image" rows="2"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="edit_url_image" class="form-label">URL de l'image (optionnel)</label>
+                                        <input type="url" class="form-control" name="url_image" id="edit_url_image">
+                                        <small class="text-muted">Laissez vide si l'image sera ajoutée manuellement.</small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -424,6 +596,7 @@ include 'includes/header.php';
     </div>
 
     <!-- Scripts spécifiques -->
+    <script src="enigmes/js/enigme_forms.js"></script>
     <script>
         // Gestion du modal d'édition
         document.addEventListener('DOMContentLoaded', function() {
@@ -441,8 +614,13 @@ include 'includes/header.php';
                     document.getElementById('editEnigmeId').value = enigmeId;
                     document.getElementById('editTypeEnigmeId').value = typeEnigmeId;
                     document.getElementById('editTitre').value = titre;
-                    document.getElementById('editDonneesJson').value = donnees;
                     document.getElementById('editActif').checked = actif === '1';
+                    
+                    // Afficher le bon formulaire et remplir les données
+                    if (window.enigmeFormManager) {
+                        window.enigmeFormManager.showFormType('edit');
+                        window.enigmeFormManager.fillEditFormData(donnees, typeEnigmeId);
+                    }
                 });
             }
         });
