@@ -32,9 +32,9 @@
                             <i class="fas fa-route fa-3x text-success mb-3"></i>
                             <h6>Gestion des Parcours</h6>
                             <p class="text-muted small">Configurer et suivre les parcours des équipes</p>
-                            <a href="parcours.php" class="btn btn-success btn-sm w-100">
+                            <button class="btn btn-success btn-sm w-100" data-bs-toggle="modal" data-bs-target="#parcoursModal">
                                 <i class="fas fa-cog"></i> Configurer
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -46,9 +46,9 @@
                             <i class="fas fa-map-marker-alt fa-3x text-warning mb-3"></i>
                             <h6>Gestion des Lieux</h6>
                             <p class="text-muted small">Administrer les lieux et énigmes du jeu</p>
-                            <a href="lieux.php" class="btn btn-warning btn-sm w-100">
+                            <button class="btn btn-warning btn-sm w-100" data-bs-toggle="modal" data-bs-target="#lieuxModal">
                                 <i class="fas fa-edit"></i> Administrer
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -60,9 +60,9 @@
                             <i class="fas fa-qrcode fa-3x text-info mb-3"></i>
                             <h6>Génération QR Codes</h6>
                             <p class="text-muted small">Créer les QR codes pour les équipes</p>
-                            <a href="generate_qr.php" class="btn btn-info btn-sm w-100">
+                            <button class="btn btn-info btn-sm w-100" data-bs-toggle="modal" data-bs-target="#qrModal">
                                 <i class="fas fa-qrcode"></i> Générer
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -76,42 +76,42 @@
                 
                 <!-- Gestion des énigmes -->
                 <div class="col-md-3 mb-3">
-                    <div class="card tool-card h-100 border-purple">
+                    <div class="card tool-card h-100 border-secondary">
                         <div class="card-body text-center">
-                            <i class="fas fa-question-circle fa-3x text-purple mb-3"></i>
+                            <i class="fas fa-question-circle fa-3x text-secondary mb-3"></i>
                             <h6>Gestion des Énigmes</h6>
                             <p class="text-muted small">Créer et configurer les énigmes du jeu</p>
-                            <a href="enigmes.php" class="btn btn-purple btn-sm w-100">
+                            <button class="btn btn-secondary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#enigmesModal">
                                 <i class="fas fa-puzzle-piece"></i> Configurer
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Types d'énigmes -->
                 <div class="col-md-3 mb-3">
-                    <div class="card tool-card h-100 border-indigo">
+                    <div class="card tool-card h-100 border-danger">
                         <div class="card-body text-center">
-                            <i class="fas fa-puzzle-piece fa-3x text-indigo mb-3"></i>
+                            <i class="fas fa-puzzle-piece fa-3x text-danger mb-3"></i>
                             <h6>Types d'Énigmes</h6>
                             <p class="text-muted small">Gérer les différents types d'énigmes disponibles</p>
-                            <a href="types_enigmes.php" class="btn btn-indigo btn-sm w-100">
+                            <button class="btn btn-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#typesEnigmesModal">
                                 <i class="fas fa-cogs"></i> Gérer
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 <!-- Statistiques des indices -->
                 <div class="col-md-3 mb-3">
-                    <div class="card tool-card h-100 border-teal">
+                    <div class="card tool-card h-100 border-primary">
                         <div class="card-body text-center">
-                            <i class="fas fa-chart-bar fa-3x text-teal mb-3"></i>
+                            <i class="fas fa-chart-bar fa-3x text-primary mb-3"></i>
                             <h6>Statistiques des Indices</h6>
                             <p class="text-muted small">Analyser l'utilisation des indices par les équipes</p>
-                            <a href="indices_stats.php" class="btn btn-teal btn-sm w-100">
+                            <button class="btn btn-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#statsModal">
                                 <i class="fas fa-chart-line"></i> Analyser
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -123,9 +123,9 @@
                             <i class="fas fa-database fa-3x text-dark mb-3"></i>
                             <h6>Sauvegarde BDD</h6>
                             <p class="text-muted small">Sauvegarder et restaurer la base de données</p>
-                            <a href="savBDD.php" class="btn btn-dark btn-sm w-100">
+                            <button class="btn btn-dark btn-sm w-100" data-bs-toggle="modal" data-bs-target="#sauvegardeModal">
                                 <i class="fas fa-save"></i> Sauvegarder
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
