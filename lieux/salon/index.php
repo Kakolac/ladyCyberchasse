@@ -9,7 +9,7 @@ require_once '../../config/connexion.php';
 
 // Récupération des informations de l'équipe et du lieu
 $team_name = $_SESSION['team_name'];
-$lieu_slug = 'toilettes';
+$lieu_slug = 'salon';
 
 // Récupération de l'équipe
 $stmt = $pdo->prepare("SELECT id FROM equipes WHERE nom = ?");
