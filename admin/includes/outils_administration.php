@@ -23,9 +23,9 @@
                             <i class="fas fa-users fa-3x text-primary mb-3"></i>
                             <h6>Gestion des Équipes</h6>
                             <p class="text-muted small">Créer, modifier et gérer les équipes participantes</p>
-                            <a href="admin.php#equipes" class="btn btn-primary btn-sm w-100">
+                            <button class="btn btn-primary btn-sm w-100" onclick="openEquipesModal()">
                                 <i class="fas fa-cog"></i> Gérer
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -138,3 +138,23 @@
         </div>
     </div>
 </div>
+
+<script>
+function openEquipesModal() {
+    // Vérifier si Bootstrap est disponible
+    if (typeof bootstrap !== 'undefined') {
+        const modal = new bootstrap.Modal(document.getElementById('equipesModal'));
+        modal.show();
+    } else {
+        // Fallback si Bootstrap n'est pas chargé
+        const modal = document.getElementById('equipesModal');
+        if (modal) {
+            modal.style.display = 'block';
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+        } else {
+            alert('Modal des équipes non trouvée. Vérifiez que la page est bien chargée.');
+        }
+    }
+}
+</script>
