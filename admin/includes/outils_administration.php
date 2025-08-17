@@ -2,7 +2,12 @@
 <div class="col-12">
     <div class="card admin-card">
         <div class="card-header bg-primary text-white">
-            <h4><i class="fas fa-tools"></i> Outils d'Administration</h4>
+            <div class="d-flex justify-content-between align-items-center">
+                <h4><i class="fas fa-tools"></i> Outils d'Administration</h4>
+                <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#wizardModal">
+                    <i class="fas fa-magic"></i> Wizard
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <!-- Première rangée : Outils principaux -->

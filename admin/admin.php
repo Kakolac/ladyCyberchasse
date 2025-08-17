@@ -487,6 +487,9 @@ include 'includes/header.php';
         }
     </script>
 
+    <!-- Modal du Wizard -->
+    <?php include 'includes/wizard_modal.php'; ?>
+
 <?php
 // Inclure le footer
 include 'includes/footer.php';
