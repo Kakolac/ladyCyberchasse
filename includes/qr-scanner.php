@@ -298,94 +298,99 @@ function handleQRCode(data) {
     // Masquer l'indicateur de scan
     document.getElementById('scanIndicator').style.display = 'none';
     
-    // Analyser l'URL pour extraire le nom du lieu
-    const lieuInfo = extractLieuInfo(data);
-    
-    // Afficher le résultat avec un LIEN SIMPLE au lieu d'un bouton
-    const resultDiv = document.getElementById('scanResult');
-    resultDiv.innerHTML = `
-        <div style="background: rgba(40,167,69,0.95); padding: 20px; border-radius: 15px; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-            <h4 style="margin-bottom: 15px; font-size: 20px;">🎯 QR Code détecté !</h4>
-            <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center;">
-                <div style="font-size: 24px; margin-bottom: 10px;">${lieuInfo.icon}</div>
-                <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${lieuInfo.nom}</div>
-                <div style="font-size: 14px; opacity: 0.9;">${lieuInfo.description}</div>
+    // NOUVEAU : Utiliser la fonction asynchrone pour récupérer les infos du lieu
+    getLieuInfoFromDatabase(data).then(lieuInfo => {
+        // Afficher le résultat avec les informations dynamiques
+        const resultDiv = document.getElementById('scanResult');
+        resultDiv.innerHTML = `
+            <div style="background: rgba(40,167,69,0.95); padding: 20px; border-radius: 15px; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                <h4 style="margin-bottom: 15px; font-size: 20px;">🎯 QR Code détecté !</h4>
+                <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center;">
+                    <div style="font-size: 24px; margin-bottom: 10px;">${lieuInfo.icon}</div>
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">${lieuInfo.nom}</div>
+                    <div style="font-size: 14px; opacity: 0.9;">${lieuInfo.description}</div>
+                </div>
+                
+                <!-- LIEN CLIQUABLE DE L'URL DÉCODÉE -->
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center;">
+                    <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px; color: #ffd700;"> Lien direct :</div>
+                    <a href="${data}" style="font-size: 14px; word-break: break-all; color: #00ff88; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; display: block; text-decoration: none; border: 1px solid #00ff88;">
+                        ${data}
+                    </a>
+                </div>
+                
+                <p style="margin-bottom: 20px; font-size: 16px;">Cliquez sur le lien ci-dessous pour vous téléporter :</p>
+                
+                <!-- LIEN SIMPLE AU LIEU D'UN BOUTON -->
+                <div style="text-align: center;">
+                    <a href="${data}" class="btn btn-success" style="font-size: 18px; padding: 15px 30px; text-decoration: none; display: inline-block;">
+                        🚀 Se téléporter sur le lieu
+                    </a>
+                </div>
             </div>
-            
-            <!-- LIEN CLIQUABLE DE L'URL DÉCODÉE -->
-            <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center;">
-                <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px; color: #ffd700;"> Lien direct :</div>
-                <a href="${data}" style="font-size: 14px; word-break: break-all; color: #00ff88; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; display: block; text-decoration: none; border: 1px solid #00ff88;">
-                    ${data}
-                </a>
+        `;
+        resultDiv.style.display = 'block';
+        
+        // Scroll vers le résultat pour qu'il soit visible
+        resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }).catch(error => {
+        // En cas d'erreur, afficher un message d'erreur
+        const resultDiv = document.getElementById('scanResult');
+        resultDiv.innerHTML = `
+            <div style="background: rgba(220,53,69,0.95); padding: 20px; border-radius: 15px; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                <h4 style="margin-bottom: 15px; font-size: 20px;">❌ Erreur lors du scan</h4>
+                <p style="margin-bottom: 15px;">Impossible de récupérer les informations du lieu : ${error.message}</p>
+                <div style="text-align: center;">
+                    <a href="${data}" class="btn btn-warning" style="font-size: 16px; padding: 12px 24px; text-decoration: none; display: inline-block;">
+                         Accéder quand même au lieu
+                    </a>
+                </div>
             </div>
-            
-            <p style="margin-bottom: 20px; font-size: 16px;">Cliquez sur le lien ci-dessous pour vous téléporter :</p>
-            
-            <!-- LIEN SIMPLE AU LIEU D'UN BOUTON -->
-            <div style="text-align: center;">
-                <a href="${data}" class="btn btn-success" style="font-size: 18px; padding: 15px 30px; text-decoration: none; display: inline-block;">
-                    🚀 Se téléporter sur le lieu
-                </a>
-            </div>
-        </div>
-    `;
-    resultDiv.style.display = 'block';
-    
-    // Scroll vers le résultat pour qu'il soit visible
-    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        `;
+        resultDiv.style.display = 'block';
+    });
 }
 
-function extractLieuInfo(url) {
+// NOUVELLE FONCTION : Récupération des informations du lieu depuis la BDD
+async function getLieuInfoFromDatabase(url) {
     try {
-        // Analyser l'URL pour extraire le lieu
+        // Extraire le paramètre lieu de l'URL
         const urlObj = new URL(url);
         const lieu = urlObj.searchParams.get('lieu');
         
-        if (lieu) {
-            // Mapping des lieux avec leurs informations
-            const lieuxMapping = {
-                'accueil': { nom: 'Hall d\'entrée', description: 'Point de départ de la cyberchasse', icon: '🏠' },
-                'cantine': { nom: 'Cantine', description: 'Zone de restauration', icon: '🍽️' },
-                'cdi': { nom: 'CDI', description: 'Centre de Documentation et d\'Information', icon: '📚' },
-                'cour': { nom: 'Cour', description: 'Espace extérieur', icon: '🌳' },
-                'direction': { nom: 'Direction', description: 'Bureau de la direction', icon: '👔' },
-                'gymnase': { nom: 'Gymnase', description: 'Salle de sport', icon: '⚽' },
-                'infirmerie': { nom: 'Infirmerie', description: 'Zone médicale', icon: '🏥' },
-                'internat': { nom: 'Internat', description: 'Zone d\'hébergement', icon: '🏠' },
-                'labo_chimie': { nom: 'Laboratoire de Chimie', description: 'Expériences chimiques', icon: '🧪' },
-                'labo_physique': { nom: 'Laboratoire de Physique', description: 'Expériences physiques', icon: '⚡' },
-                'labo_svt': { nom: 'Laboratoire SVT', description: 'Sciences de la vie', icon: '🔬' },
-                'salle_arts': { nom: 'Salle d\'Arts', description: 'Arts plastiques', icon: '🎨' },
-                'salle_info': { nom: 'Salle Informatique', description: 'Cybersécurité et informatique', icon: '💻' },
-                'salle_langues': { nom: 'Salle de Langues', description: 'Apprentissage des langues', icon: '🌍' },
-                'salle_musique': { nom: 'Salle de Musique', description: 'Pratique musicale', icon: '🎵' },
-                'salle_profs': { nom: 'Salle des Professeurs', description: 'Espace enseignant', icon: '👨‍🏫' },
-                'salle_reunion': { nom: 'Salle de Réunion', description: 'Espace de réunion', icon: '🤝' },
-                'secretariat': { nom: 'Secrétariat', description: 'Bureau administratif', icon: '📋' },
-                'vie_scolaire': { nom: 'Vie Scolaire', description: 'Gestion des élèves', icon: '👥' },
-                'atelier_techno': { nom: 'Atelier Technologique', description: 'Technologies et innovation', icon: '' }
-            };
-            
-            const lieuInfo = lieuxMapping[lieu];
-            if (lieuInfo) {
-                return lieuInfo;
-            }
+        if (!lieu) {
+            throw new Error('Paramètre "lieu" manquant dans l\'URL');
         }
         
-        // Fallback si le lieu n'est pas reconnu
-        return {
-            nom: 'Lieu inconnu',
-            description: 'Lieu non identifié',
-            icon: '❓'
-        };
+        showDebugMessage(`🔍 Recherche des informations pour le lieu: ${lieu}`);
+        
+        // SOLUTION : Utiliser un chemin absolu au lieu d'un chemin relatif
+        const apiUrl = `/scripts/get_lieu_info.php?lieu=${encodeURIComponent(lieu)}`;
+        
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showDebugMessage(`✅ Lieu trouvé: ${data.lieu_info.nom}`);
+            return data.lieu_info;
+        } else {
+            showDebugMessage(`⚠️ Lieu non trouvé: ${data.error}`);
+            return data.lieu_info; // Retourne les informations par défaut
+        }
         
     } catch (error) {
-        // Fallback en cas d'erreur d'URL
+        showDebugMessage(`❌ Erreur lors de la récupération: ${error.message}`);
+        
+        // Fallback en cas d'erreur
         return {
             nom: 'Lieu inconnu',
-            description: 'Erreur de lecture du QR code',
-            icon: '❓'
+            description: 'Erreur de communication avec le serveur',
+            icon: '⚠️'
         };
     }
 }
