@@ -14,6 +14,7 @@ require_once 'enigmes/handlers/texte_libre_handler.php';
 require_once 'enigmes/handlers/calcul_handler.php';
 require_once 'enigmes/handlers/image_handler.php';
 require_once 'enigmes/handlers/audio_handler.php';
+require_once 'enigmes/handlers/youtube_handler.php';
 
 // Traitement des actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -101,6 +102,8 @@ function validateEnigmeData($post_data, $type_enigme_id) {
             return ImageHandler::validate($post_data);
         case '5': // Audio
             return AudioHandler::validate($post_data);
+        case '6': // YouTube
+            return YouTubeHandler::validate($post_data);
         default:
             return ["Type d'énigme non reconnu"];
     }
@@ -120,6 +123,8 @@ function generateEnigmeJSON($post_data, $type_enigme_id) {
             return ImageHandler::generateJSON($post_data);
         case '5': // Audio
             return AudioHandler::generateJSON($post_data);
+        case '6': // YouTube
+            return YouTubeHandler::generateJSON($post_data);
         default:
             return json_encode([]);
     }
@@ -373,6 +378,7 @@ include 'includes/header.php';
                         <?php include 'enigmes/forms/calcul_form.php'; ?>
                         <?php include 'enigmes/forms/image_form.php'; ?>
                         <?php include 'enigmes/forms/audio_form.php'; ?>
+                        <?php include 'enigmes/forms/youtube_form.php'; ?>
                         
                     </div>
                     <div class="modal-footer">
@@ -625,6 +631,77 @@ include 'includes/header.php';
                                                 <input class="form-check-input" type="checkbox" name="volume_control_audio" id="edit_volume_control_audio" value="1">
                                                 <label class="form-check-label" for="edit_volume_control_audio">
                                                     Contrôle du volume
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- YouTube Édition -->
+                        <div id="edit-form-youtube" class="form-type-container">
+                            <div class="card border-danger">
+                                <div class="card-header bg-danger text-white">
+                                    <h6><i class="fab fa-youtube"></i> Configuration YouTube</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="edit_question_youtube" class="form-label">Question</label>
+                                        <textarea class="form-control" name="question_youtube" id="edit_question_youtube" rows="3"></textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="edit_youtube_url" class="form-label">URL YouTube <span class="text-danger">*</span></label>
+                                        <input type="url" class="form-control" name="youtube_url" id="edit_youtube_url">
+                                        <small class="text-muted">Collez l'URL complète de la vidéo YouTube</small>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="edit_reponse_correcte_youtube" class="form-label">Réponse correcte <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" name="reponse_correcte_youtube" 
+                                               id="edit_reponse_correcte_youtube">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="edit_reponses_acceptees_youtube" class="form-label">Réponses acceptées</label>
+                                        <input type="text" class="form-control" name="reponses_acceptees_youtube" 
+                                               id="edit_reponses_acceptees_youtube">
+                                        <small class="text-muted">Séparez plusieurs réponses par des virgules. La première sera la réponse principale.</small>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="edit_indice_youtube" class="form-label">Indice</label>
+                                        <textarea class="form-control" name="indice_youtube" id="edit_indice_youtube" rows="2"></textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="edit_contexte_youtube" class="form-label">Contexte/Description</label>
+                                        <textarea class="form-control" name="contexte_youtube" id="edit_contexte_youtube" rows="3"></textarea>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="autoplay_youtube" id="edit_autoplay_youtube" value="1">
+                                                <label class="form-check-label" for="edit_autoplay_youtube">
+                                                    Lecture automatique
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="loop_youtube" id="edit_loop_youtube" value="1">
+                                                <label class="form-check-label" for="edit_loop_youtube">
+                                                    Lecture en boucle
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="show_controls_youtube" id="edit_show_controls_youtube" value="1" checked>
+                                                <label class="form-check-label" for="edit_show_controls_youtube">
+                                                    Afficher les contrôles
                                                 </label>
                                             </div>
                                         </div>

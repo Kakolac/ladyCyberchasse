@@ -103,6 +103,10 @@ class EnigmeFormManager {
                 isValid = this.validateAudioForm();
                 validationMessage = 'Audio';
                 break;
+            case '6': // YouTube - NOUVEAU
+                isValid = this.validateYouTubeForm();
+                validationMessage = 'YouTube';
+                break;
             default:
                 isValid = true;
                 validationMessage = 'Type inconnu';
@@ -256,6 +260,50 @@ class EnigmeFormManager {
     }
     
     /**
+     * Valide le formulaire YouTube
+     */
+    validateYouTubeForm() {
+        const question = document.querySelector('[name="question_youtube"]').value.trim();
+        const youtubeUrl = document.querySelector('[name="youtube_url"]').value.trim();
+        const reponse = document.querySelector('[name="reponse_correcte_youtube"]').value.trim();
+        
+        if (!question) {
+            alert('Veuillez saisir une question pour l\'énigme YouTube');
+            return false;
+        }
+        
+        if (!youtubeUrl) {
+            alert('Veuillez saisir une URL YouTube pour l\'énigme YouTube');
+            return false;
+        }
+        
+        if (!this.isValidYouTubeURL(youtubeUrl)) {
+            alert('L\'URL YouTube n\'est pas valide. Veuillez coller l\'URL complète.');
+            return false;
+        }
+        
+        if (!reponse) {
+            alert('Veuillez saisir la réponse correcte pour l\'énigme YouTube');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Vérifie si l'URL YouTube est valide
+     */
+    isValidYouTubeURL(url) {
+        const patterns = [
+            /^https?:\/\/(www\.)?youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}/,
+            /^https?:\/\/youtu\.be\/[a-zA-Z0-9_-]{11}/,
+            /^https?:\/\/(www\.)?youtube\.com\/embed\/[a-zA-Z0-9_-]{11}/
+        ];
+        
+        return patterns.some(pattern => pattern.test(url));
+    }
+    
+    /**
      * Soumet le formulaire en AJAX
      */
     submitFormAjax(form) {
@@ -371,6 +419,10 @@ class EnigmeFormManager {
                 console.log('Affichage du formulaire audio'); // Debug
                 this.showForm('audio', mode);
                 break;
+            case '6': // YouTube - NOUVEAU
+                console.log('Affichage du formulaire YouTube'); // Debug
+                this.showForm('youtube', mode);
+                break;
             default:
                 console.log('Type non reconnu:', selectedType); // Debug
         }
@@ -430,7 +482,8 @@ class EnigmeFormManager {
             '2': `${prefix}texte-libre`,
             '3': `${prefix}calcul`,
             '4': `${prefix}image`,
-            '5': `${prefix}audio`
+            '5': `${prefix}audio`,
+            '6': `${prefix}youtube` // Ajout du type YouTube
         };
         return formMap[typeId];
     }
@@ -509,6 +562,19 @@ class EnigmeFormManager {
                     'edit_autoplay_audio': donnees.autoplay ? '1' : '',
                     'edit_loop_audio': donnees.loop ? '1' : '',
                     'edit_volume_control_audio': donnees.volume_control ? '1' : ''
+                };
+                
+            case '6': // YouTube
+                return {
+                    'edit_question_youtube': donnees.question || '',
+                    'edit_youtube_url': donnees.youtube_url || '',
+                    'edit_reponse_correcte_youtube': donnees.reponse_correcte || '',
+                    'edit_reponses_acceptees_youtube': donnees.reponses_acceptees ? donnees.reponses_acceptees.join(', ') : '',
+                    'edit_indice_youtube': donnees.indice || '',
+                    'edit_contexte_youtube': donnees.contexte || '',
+                    'edit_autoplay_youtube': donnees.autoplay ? '1' : '',
+                    'edit_loop_youtube': donnees.loop ? '1' : '',
+                    'edit_show_controls_youtube': donnees.show_controls ? '1' : ''
                 };
                 
             default:
