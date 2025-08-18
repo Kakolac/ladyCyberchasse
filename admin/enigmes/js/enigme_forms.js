@@ -38,13 +38,17 @@ class EnigmeFormManager {
             console.error('Select editTypeEnigmeId non trouvé');
         }
         
-        // Validation du formulaire avant soumission
+        // Validation du formulaire avant soumission ET traitement AJAX
         const createForm = document.querySelector('#createEnigmeModal form');
         if (createForm) {
             createForm.addEventListener('submit', (e) => {
-                if (!this.validateFormBeforeSubmit()) {
-                    e.preventDefault();
-                    console.log('Validation échouée, soumission bloquée');
+                e.preventDefault(); // Empêcher la soumission normale
+                console.log('🔄 Formulaire soumis - Traitement AJAX');
+                
+                if (this.validateFormBeforeSubmit()) {
+                    this.submitFormAjax(createForm);
+                } else {
+                    console.log('❌ Validation échouée, soumission bloquée');
                 }
             });
         }
@@ -58,29 +62,54 @@ class EnigmeFormManager {
         const selectedType = typeSelect.value;
         const titre = document.getElementById('titre').value.trim();
         
+        console.log('Validation du formulaire :');
+        console.log('- Type sélectionné:', selectedType);
+        console.log('- Titre:', titre);
+        
         if (!selectedType) {
-            alert('Veuillez sélectionner un type d\'énigme');
+            this.showErrorMessage('Veuillez sélectionner un type d\'énigme');
+            typeSelect.focus();
             return false;
         }
         
         if (!titre) {
-            alert('Veuillez saisir un titre pour l\'énigme');
+            this.showErrorMessage('Veuillez saisir un titre pour l\'énigme');
+            document.getElementById('titre').focus();
             return false;
         }
         
-        // Validation spécifique selon le type
+        // Ne valider que le formulaire actif selon le type sélectionné
+        let isValid = true;
+        let validationMessage = '';
+        
         switch (selectedType) {
             case '1': // QCM
-                return this.validateQCMForm();
+                isValid = this.validateQCMForm();
+                validationMessage = 'QCM';
+                break;
             case '2': // Texte Libre
-                return this.validateTexteLibreForm();
+                isValid = this.validateTexteLibreForm();
+                validationMessage = 'Texte Libre';
+                break;
             case '3': // Calcul
-                return this.validateCalculForm();
+                isValid = this.validateCalculForm();
+                validationMessage = 'Calcul';
+                break;
             case '4': // Image
-                return this.validateImageForm();
+                isValid = this.validateImageForm();
+                validationMessage = 'Image';
+                break;
+            case '5': // Audio
+                isValid = this.validateAudioForm();
+                validationMessage = 'Audio';
+                break;
             default:
-                return true;
+                isValid = true;
+                validationMessage = 'Type inconnu';
         }
+        
+        console.log(`Validation ${validationMessage}: ${isValid ? 'OK' : 'ÉCHEC'}`);
+        return isValid;
     }
     
     /**
@@ -177,32 +206,173 @@ class EnigmeFormManager {
         
         return true;
     }
+
+    /**
+     * Valide le formulaire Audio
+     */
+    validateAudioForm() {
+        const question = document.querySelector('[name="question_audio"]').value.trim();
+        const reponseCorrecte = document.querySelector('[name="reponse_correcte_audio"]').value.trim();
+        const audioFile = document.querySelector('[name="audio_file"]').files[0];
+        const audioUrl = document.querySelector('[name="audio_url"]').value.trim();
+        
+        console.log('Validation audio - Question:', question);
+        console.log('Validation audio - Réponse:', reponseCorrecte);
+        console.log('Validation audio - Fichier:', audioFile);
+        console.log('Validation audio - URL:', audioUrl);
+        
+        if (!question) {
+            alert('Veuillez saisir une question pour l\'énigme audio');
+            return false;
+        }
+        
+        if (!reponseCorrecte) {
+            alert('Veuillez saisir la réponse correcte');
+            return false;
+        }
+        
+        // Vérifier qu'au moins un audio est fourni
+        if (!audioFile && !audioUrl) {
+            alert('Veuillez fournir un fichier audio OU une URL audio');
+            return false;
+        }
+        
+        // Validation du fichier audio si uploadé
+        if (audioFile) {
+            const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg'];
+            if (!allowedTypes.includes(audioFile.type)) {
+                alert('Format de fichier non supporté. Utilisez MP3, WAV ou OGG');
+                return false;
+            }
+            
+            if (audioFile.size > 10 * 1024 * 1024) { // 10MB
+                alert('Le fichier audio est trop volumineux (max 10MB)');
+                return false;
+            }
+        }
+        
+        console.log('✅ Validation audio réussie');
+        return true;
+    }
     
     /**
-     * Affiche le formulaire correspondant au type sélectionné
+     * Soumet le formulaire en AJAX
+     */
+    submitFormAjax(form) {
+        const formData = new FormData(form);
+        
+        // Debug des données envoyées
+        console.log('Données du formulaire :');
+        for (let [key, value] of formData.entries()) {
+            console.log(`${key}: ${value}`);
+        }
+        
+        // Correction de l'URL - utiliser une URL fixe ou l'URL relative correcte
+        const submitUrl = '/admin/enigmes.php';  // URL fixe
+        
+        console.log('Soumission vers:', submitUrl); // Debug de l'URL
+        
+        fetch(submitUrl, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            console.log('Status de la réponse:', response.status);
+            console.log('Headers:', response.headers);
+            return response.text();
+        })
+        .then(data => {
+            console.log('Réponse complète:', data);
+            
+            // Vérifier si la réponse contient un message de succès
+            if (data.includes('success_message') || data.includes('Énigme créée avec succès')) {
+                this.showSuccessMessage('Énigme créée avec succès !');
+                // Recharger la page après un court délai
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                // Si la réponse contient une erreur, l'afficher
+                const errorMatch = data.match(/error_message">(.*?)</);
+                if (errorMatch) {
+                    this.showErrorMessage(errorMatch[1]);
+                } else {
+                    this.showErrorMessage('Erreur lors de la création de l\'énigme');
+                    console.error('Réponse inattendue:', data);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la soumission:', error);
+            this.showErrorMessage(`Erreur lors de la soumission: ${error.message}`);
+        });
+    }
+    
+    /**
+     * Ajoute un message de debug au panel
+     */
+    addDebugMessage(message) {
+        const timestamp = new Date().toLocaleTimeString();
+        const debugMessage = `${timestamp} - ${message}`;
+        
+        // Ajouter à la console
+        console.log(debugMessage);
+        
+        // Ajouter au debug panel s'il existe
+        const debugPanel = document.querySelector('.alert-info');
+        if (debugPanel) {
+            const debugContent = debugPanel.querySelector('div[style*="font-family: monospace"]');
+            if (debugContent) {
+                const messageDiv = document.createElement('div');
+                messageDiv.textContent = debugMessage;
+                debugContent.appendChild(messageDiv);
+                
+                // Garder seulement les 20 derniers messages
+                const messages = debugContent.querySelectorAll('div');
+                if (messages.length > 20) {
+                    for (let i = 0; i < messages.length - 20; i++) {
+                        messages[i].remove();
+                    }
+                }
+                
+                // Faire défiler vers le bas
+                debugContent.scrollTop = debugContent.scrollHeight;
+            }
+        }
+    }
+    
+    /**
+     * Affiche le bon formulaire selon le type sélectionné
      */
     showFormType(mode = 'create') {
-        const prefix = mode === 'create' ? 'form-' : 'edit-form-';
         const typeSelect = document.getElementById(mode === 'create' ? 'type_enigme_id' : 'editTypeEnigmeId');
         const selectedType = typeSelect.value;
+        
+        console.log('Type sélectionné:', selectedType); // Debug
         
         // Masquer tous les formulaires
         this.hideAllForms(mode);
         
-        // Désactiver la validation HTML sur tous les champs cachés
-        this.disableValidationOnHiddenForms(mode);
-        
-        // Afficher le formulaire correspondant au type sélectionné
-        if (selectedType) {
-            const formId = this.getFormIdByType(selectedType, mode);
-            if (formId) {
-                const formElement = document.getElementById(formId);
-                if (formElement) {
-                    formElement.classList.add('active');
-                    // Réactiver la validation sur le formulaire visible
-                    this.enableValidationOnVisibleForm(formId);
-                }
-            }
+        // Afficher le bon formulaire
+        switch (selectedType) {
+            case '1': // QCM
+                this.showForm('qcm', mode);
+                break;
+            case '2': // Texte Libre
+                this.showForm('texte-libre', mode);
+                break;
+            case '3': // Calcul
+                this.showForm('calcul', mode);
+                break;
+            case '4': // Image
+                this.showForm('image', mode);
+                break;
+            case '5': // Audio
+                console.log('Affichage du formulaire audio'); // Debug
+                this.showForm('audio', mode);
+                break;
+            default:
+                console.log('Type non reconnu:', selectedType); // Debug
         }
     }
     
@@ -213,42 +383,40 @@ class EnigmeFormManager {
         const prefix = mode === 'create' ? 'form-' : 'edit-form-';
         const forms = document.querySelectorAll(`[id^="${prefix}"]`);
         forms.forEach(form => {
-            form.classList.remove('active');
+            form.style.display = 'none';
+            // Désactiver les champs required des formulaires cachés
+            form.querySelectorAll('[required]').forEach(field => {
+                field.removeAttribute('required');
+                // Stocker l'information que le champ était required
+                field.dataset.wasRequired = 'true';
+            });
         });
     }
     
     /**
-     * Désactive la validation HTML sur les formulaires cachés
+     * Affiche un formulaire spécifique
      */
-    disableValidationOnHiddenForms(mode = 'create') {
+    showForm(formType, mode = 'create') {
         const prefix = mode === 'create' ? 'form-' : 'edit-form-';
-        const forms = document.querySelectorAll(`[id^="${prefix}"]`);
-        forms.forEach(form => {
-            const inputs = form.querySelectorAll('input, select, textarea');
-            inputs.forEach(input => {
-                input.removeAttribute('required');
-                input.removeAttribute('min');
-                input.removeAttribute('max');
-                input.removeAttribute('pattern');
-            });
-        });
-    }
-    
-    /**
-     * Réactive la validation HTML sur le formulaire visible
-     */
-    enableValidationOnVisibleForm(formId) {
+        const formId = `${prefix}${formType}`;
         const form = document.getElementById(formId);
+        
         if (form) {
-            const inputs = form.querySelectorAll('input, select, textarea');
-            inputs.forEach(input => {
-                // Remettre les attributs de validation selon le type de champ
-                if (input.name && input.name.includes('question') || 
-                    input.name && input.name.includes('reponse_correcte') ||
-                    input.name && input.name.includes('titre')) {
-                    input.setAttribute('required', 'required');
-                }
+            form.style.display = 'block';
+            // Réactiver les champs qui étaient required
+            form.querySelectorAll('[data-was-required="true"]').forEach(field => {
+                field.setAttribute('required', '');
             });
+            
+            console.log(`✅ Affichage du formulaire: ${formId}`);
+            console.log('Style display:', form.style.display);
+            console.log('Form visible:', form.offsetHeight > 0);
+        } else {
+            console.error(`❌ Formulaire non trouvé: ${formId}`);
+            
+            // Lister tous les formulaires disponibles
+            const allForms = document.querySelectorAll('[id^="form-"]');
+            console.log('Formulaires disponibles:', Array.from(allForms).map(f => f.id));
         }
     }
     
@@ -261,7 +429,8 @@ class EnigmeFormManager {
             '1': `${prefix}qcm`,
             '2': `${prefix}texte-libre`,
             '3': `${prefix}calcul`,
-            '4': `${prefix}image`
+            '4': `${prefix}image`,
+            '5': `${prefix}audio`
         };
         return formMap[typeId];
     }
@@ -329,9 +498,137 @@ class EnigmeFormManager {
                     'edit_url_image': donnees.url_image || ''
                 };
                 
+            case '5': // Audio
+                return {
+                    'edit_question_audio': donnees.question || '',
+                    'edit_reponse_correcte_audio': donnees.reponse_correcte || '',
+                    'edit_reponses_acceptees_audio': donnees.reponses_acceptees ? donnees.reponses_acceptees.join(', ') : '',
+                    'edit_indice_audio': donnees.indice || '',
+                    'edit_contexte_audio': donnees.contexte || '',
+                    'edit_audio_url': donnees.audio_url || '',
+                    'edit_autoplay_audio': donnees.autoplay ? '1' : '',
+                    'edit_loop_audio': donnees.loop ? '1' : '',
+                    'edit_volume_control_audio': donnees.volume_control ? '1' : ''
+                };
+                
             default:
                 return {};
         }
+    }
+
+    /**
+     * Affiche un message de succès
+     */
+    showSuccessMessage(message) {
+        // Créer une notification visible
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-success position-fixed';
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            <strong>✅ Succès !</strong> ${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Supprimer automatiquement après 5 secondes
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+    
+    /**
+     * Affiche un message d'erreur
+     */
+    showErrorMessage(message) {
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-danger position-fixed';
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            <strong>❌ Erreur !</strong> ${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+    
+    /**
+     * Affiche un message d'information
+     */
+    showInfoMessage(message) {
+        const notification = document.createElement('div');
+        notification.className = 'alert alert-info position-fixed';
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            <strong>ℹ️ Information</strong> ${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    /**
+     * Test direct de la requête POST
+     */
+    testDirectRequest() {
+        this.addDebugMessage('🧪 Test de requête POST directe...');
+        
+        // Correction de l'URL - utiliser l'URL absolue
+        const targetUrl = window.location.origin + '/admin/enigmes.php';
+        this.addDebugMessage(`🎯 URL cible: ${targetUrl}`);
+        
+        fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'action=create_enigme&type_enigme_id=5&titre=test'
+        }).then(r => {
+            this.addDebugMessage('Réponse directe reçue: ' + r.status + ' ' + r.statusText);
+            return r.text();
+        }).then(data => {
+            this.addDebugMessage('Contenu direct reçu: ' + data.substring(0, 200));
+        }).catch(err => {
+            this.addDebugMessage('Erreur directe: ' + err.message);
+        });
+    }
+
+    /**
+     * Test avec XMLHttpRequest
+     */
+    testXHR() {
+        this.addDebugMessage('🧪 Test avec XMLHttpRequest...');
+        
+        // Correction de l'URL - utiliser l'URL absolue
+        const targetUrl = window.location.origin + '/admin/enigmes.php';
+        this.addDebugMessage(`🎯 URL cible: ${targetUrl}`);
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', targetUrl, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        
+        xhr.onreadystatechange = () => {
+            if (xhr.readyState === 4) {
+                this.addDebugMessage('📥 XHR Status: ' + xhr.status);
+                this.addDebugMessage('📥 XHR Response: ' + xhr.responseText.substring(0, 200));
+            }
+        };
+        
+        xhr.send('action=create_enigme&type_enigme_id=5&titre=test');
     }
 }
 

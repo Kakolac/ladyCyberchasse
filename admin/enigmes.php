@@ -13,18 +13,15 @@ require_once 'enigmes/handlers/qcm_handler.php';
 require_once 'enigmes/handlers/texte_libre_handler.php';
 require_once 'enigmes/handlers/calcul_handler.php';
 require_once 'enigmes/handlers/image_handler.php';
+require_once 'enigmes/handlers/audio_handler.php';
 
 // Traitement des actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    
     switch ($_POST['action']) {
         case 'create_enigme':
             $type_enigme_id = $_POST['type_enigme_id'];
             $titre = trim($_POST['titre']);
-            
-            // Debug : afficher les données reçues
-            error_log("Création d'énigme - Type: " . $type_enigme_id);
-            error_log("Création d'énigme - Titre: " . $titre);
-            error_log("Création d'énigme - POST data: " . print_r($_POST, true));
             
             // Validation selon le type
             $errors = validateEnigmeData($_POST, $type_enigme_id);
@@ -33,19 +30,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 // Génération automatique du JSON selon le type
                 $donnees_json = generateEnigmeJSON($_POST, $type_enigme_id);
                 
-                error_log("Création d'énigme - JSON généré: " . $donnees_json);
-                
                 $stmt = $pdo->prepare("INSERT INTO enigmes (type_enigme_id, titre, donnees) VALUES (?, ?, ?)");
                 if ($stmt->execute([$type_enigme_id, $titre, $donnees_json])) {
                     $success_message = "Énigme créée avec succès !";
-                    error_log("Création d'énigme - Succès");
                 } else {
                     $error_message = "Erreur lors de la création de l'énigme";
-                    error_log("Création d'énigme - Erreur SQL: " . print_r($stmt->errorInfo(), true));
                 }
             } else {
                 $error_message = implode(', ', $errors);
-                error_log("Création d'énigme - Erreurs de validation: " . $error_message);
             }
             break;
             
@@ -97,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 // Fonction de validation selon le type d'énigme
 function validateEnigmeData($post_data, $type_enigme_id) {
+    
     switch ($type_enigme_id) {
         case '1': // QCM
             return QCMHandler::validate($post_data);
@@ -106,6 +99,8 @@ function validateEnigmeData($post_data, $type_enigme_id) {
             return CalculHandler::validate($post_data);
         case '4': // Image
             return ImageHandler::validate($post_data);
+        case '5': // Audio
+            return AudioHandler::validate($post_data);
         default:
             return ["Type d'énigme non reconnu"];
     }
@@ -113,6 +108,7 @@ function validateEnigmeData($post_data, $type_enigme_id) {
 
 // Fonction pour générer automatiquement le JSON selon le type d'énigme
 function generateEnigmeJSON($post_data, $type_enigme_id) {
+    
     switch ($type_enigme_id) {
         case '1': // QCM
             return QCMHandler::generateJSON($post_data);
@@ -122,6 +118,8 @@ function generateEnigmeJSON($post_data, $type_enigme_id) {
             return CalculHandler::generateJSON($post_data);
         case '4': // Image
             return ImageHandler::generateJSON($post_data);
+        case '5': // Audio
+            return AudioHandler::generateJSON($post_data);
         default:
             return json_encode([]);
     }
@@ -173,33 +171,19 @@ include 'includes/header.php';
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
-
-        <!-- Styles CSS spécifiques -->
-        <style>
-            .admin-card { border: none; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-            .enigme-card { transition: transform 0.3s ease; }
-            .enigme-card:hover { transform: translateY(-5px); }
-            .modal-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
-            .btn-close { filter: invert(1); }
-            .form-type-container { display: none; }
-            .form-type-container.active { display: block; }
-        </style>
-
-        <!-- En-tête de la page -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1><i class="fas fa-puzzle-piece"></i> Gestion des Énigmes</h1>
-                <p class="text-muted">Créer et configurer les énigmes de différents types</p>
-            </div>
-            <div>
-                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createEnigmeModal">
-                    <i class="fas fa-plus"></i> Nouvelle Énigme
-                </button>
-                <a href="admin.php" class="btn btn-secondary ms-2">
-                    <i class="fas fa-arrow-left"></i> Retour au tableau de bord
-                </a>
-            </div>
-        </div>
+        
+        <!-- Contenu principal -->
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-12">
+                    <h1 class="mb-4">Gestion des Énigmes</h1>
+                    
+                    <!-- Boutons d'action -->
+                    <div class="mb-4">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createEnigmeModal">
+                            <i class="fas fa-plus"></i> Nouvelle Énigme
+                        </button>
+                    </div>
 
         <!-- Statistiques -->
         <div class="row mb-4">
@@ -362,7 +346,7 @@ include 'includes/header.php';
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <div class="modal-body">
                         <input type="hidden" name="action" value="create_enigme">
                         
@@ -388,6 +372,7 @@ include 'includes/header.php';
                         <?php include 'enigmes/forms/texte_libre_form.php'; ?>
                         <?php include 'enigmes/forms/calcul_form.php'; ?>
                         <?php include 'enigmes/forms/image_form.php'; ?>
+                        <?php include 'enigmes/forms/audio_form.php'; ?>
                         
                     </div>
                     <div class="modal-footer">
@@ -570,6 +555,79 @@ include 'includes/header.php';
                                         <label for="edit_url_image" class="form-label">URL de l'image (optionnel)</label>
                                         <input type="url" class="form-control" name="url_image" id="edit_url_image">
                                         <small class="text-muted">Laissez vide si l'image sera ajoutée manuellement.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Audio Édition -->
+                        <div id="edit-form-audio" class="form-type-container">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h6><i class="fas fa-music"></i> Configuration Audio</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="edit_question_audio" class="form-label">Question</label>
+                                        <textarea class="form-control" name="question_audio" id="edit_question_audio" rows="3"></textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="edit_audio_url" class="form-label">URL Audio</label>
+                                        <input type="url" class="form-control" name="audio_url" id="edit_audio_url">
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="edit_reponse_correcte_audio" class="form-label">Réponse correcte</label>
+                                                <input type="text" class="form-control" name="reponse_correcte_audio" id="edit_reponse_correcte_audio">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="edit_reponses_acceptees_audio" class="form-label">Réponses acceptées</label>
+                                                <input type="text" class="form-control" name="reponses_acceptees_audio" id="edit_reponses_acceptees_audio">
+                                                <small class="text-muted">Séparez plusieurs réponses par des virgules.</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="edit_indice_audio" class="form-label">Indice</label>
+                                        <textarea class="form-control" name="indice_audio" id="edit_indice_audio" rows="2"></textarea>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="edit_contexte_audio" class="form-label">Contexte/Description</label>
+                                        <textarea class="form-control" name="contexte_audio" id="edit_contexte_audio" rows="3"></textarea>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="autoplay_audio" id="edit_autoplay_audio" value="1">
+                                                <label class="form-check-label" for="edit_autoplay_audio">
+                                                    Lecture automatique
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="loop_audio" id="edit_loop_audio" value="1">
+                                                <label class="form-check-label" for="edit_loop_audio">
+                                                    Lecture en boucle
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="volume_control_audio" id="edit_volume_control_audio" value="1">
+                                                <label class="form-check-label" for="edit_volume_control_audio">
+                                                    Contrôle du volume
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
