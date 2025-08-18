@@ -419,7 +419,7 @@ class EnigmeFormManager {
                 console.log('Affichage du formulaire audio'); // Debug
                 this.showForm('audio', mode);
                 break;
-            case '6': // YouTube - NOUVEAU
+            case '6': // YouTube
                 console.log('Affichage du formulaire YouTube'); // Debug
                 this.showForm('youtube', mode);
                 break;
@@ -466,9 +466,13 @@ class EnigmeFormManager {
         } else {
             console.error(`❌ Formulaire non trouvé: ${formId}`);
             
-            // Lister tous les formulaires disponibles
+            // Lister tous les formulaires disponibles pour debug
             const allForms = document.querySelectorAll('[id^="form-"]');
             console.log('Formulaires disponibles:', Array.from(allForms).map(f => f.id));
+            
+            // Lister aussi les formulaires d'édition
+            const allEditForms = document.querySelectorAll('[id^="edit-form-"]');
+            console.log('Formulaires d\'édition disponibles:', Array.from(allEditForms).map(f => f.id));
         }
     }
     
