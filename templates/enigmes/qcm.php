@@ -7,11 +7,41 @@ $stmt = $pdo->prepare("SELECT donnees FROM enigmes WHERE id = ?");
 $stmt->execute([$lieu['enigme_id']]);
 $enigme_data = $stmt->fetch(PDO::FETCH_ASSOC);
 $donnees = json_decode($enigme_data['donnees'], true);
+
+// AJOUTER LA LOGIQUE DE TIMING DEPUIS texte_libre.php
+// Vérifier si l'indice a déjà été consulté par cette équipe
+$indice_consulte = false;
+if (isset($_SESSION['team_name'])) {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) FROM indices_consultes ic
+        JOIN equipes e ON ic.equipe_id = e.id
+        JOIN lieux l ON ic.lieu_id = l.id
+        WHERE e.nom = ? AND l.slug = ? AND ic.enigme_id = ?
+    ");
+    $stmt->execute([$_SESSION['team_name'], $lieu_slug, $lieu['enigme_id']]);
+    $indice_consulte = $stmt->fetchColumn() > 0;
+}
+
+// Variables pour le timing - NE PAS RECRÉER
+$enigme_session_key = "enigme_start_{$lieu['id']}_{$equipe['id']}";
+$indice_session_key = "indice_start_{$lieu['id']}_{$equipe['id']}";
+
+// RÉCUPÉRER les valeurs de la session, ne pas les recréer
+$enigme_start_time = $_SESSION[$enigme_session_key];
+$indice_start_time = $_SESSION[$indice_session_key];
+
+// Calculer les temps écoulés avec le délai dynamique
+$enigme_elapsed_time = time() - $enigme_start_time;
+$delai_indice_secondes = $lieu['delai_indice'] * 60; // Délai dynamique en secondes
+$indice_available = ($enigme_elapsed_time >= $delai_indice_secondes);
+$remaining_time = max(0, $delai_indice_secondes - $enigme_elapsed_time);
 ?>
 
 <div class='enigme-content'>
     <h4>🎯 Question principale</h4>
     <p class='lead'><?php echo htmlspecialchars($donnees['question']); ?></p>
+    
+    <!-- Indice - UTILISER LA MÊME LOGIQUE QUE texte_libre.php -->
     <?php if (!empty($donnees['indice'])): ?>
         <div class="indice-section mt-3">
             <?php if ($indice_consulte): ?>
@@ -42,7 +72,7 @@ $donnees = json_decode($enigme_data['donnees'], true);
                 <div class="mt-2">
                     <small class="text-muted">
                         <i class="fas fa-info-circle"></i> 
-                        L'indice sera disponible après <?php echo $lieu['delai_indice'] ?? 6; ?> minutes de réflexion
+                        L'indice sera disponible après <?php echo $lieu['delai_indice']; ?> minutes de réflexion
                     </small>
                 </div>
             <?php endif; ?>
@@ -69,6 +99,14 @@ $donnees = json_decode($enigme_data['donnees'], true);
 </div>
 
 <script>
+// Variables PHP passées au JavaScript - UTILISER LES MÊMES QUE texte_libre.php
+let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
+let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
+
+const LIEU_ID = <?php echo $lieu['id'] ?? 'null'; ?>;
+const EQUIPE_ID = <?php echo $equipe['id'] ?? 'null'; ?>;
+const ENIGME_ID = <?php echo $lieu['enigme_id'] ?? 'null'; ?>;
+
 function validateAnswer() {
     const selectedAnswer = document.querySelector('input[name="answer"]:checked');
     
@@ -133,11 +171,7 @@ function updateParcoursStatus(success) {
     });
 }
 
-// Variables pour le timer des indices
-let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
-let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
-
-// Fonction pour démarrer le timer de l'indice
+// FONCTION startIndiceTimer - COPIER DEPUIS texte_libre.php
 function startIndiceTimer() {
     if (indiceAvailable) {
         return;
@@ -146,6 +180,12 @@ function startIndiceTimer() {
     const indiceButton = document.getElementById('indice-button');
     if (!indiceButton) {
         return;
+    }
+    
+    // Synchroniser immédiatement l'affichage du bouton avec le temps PHP
+    const countdownSpan = indiceButton.querySelector('#indice-countdown');
+    if (countdownSpan) {
+        countdownSpan.textContent = '<?php echo gmdate('i:s', $remaining_time); ?>';
     }
     
     // Mettre à jour le bouton toutes les secondes
@@ -159,16 +199,14 @@ function startIndiceTimer() {
             clearInterval(countdown);
             indiceAvailable = true;
             
-            // Notification
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    icon: 'success',
-                    title: '💡 Indice disponible !',
-                    text: 'Vous pouvez maintenant consulter l\'indice',
-                    timer: 3000,
-                    showConfirmButton: false
-                });
-            }
+            // Debug avec SweetAlert2
+            Swal.fire({
+                icon: 'success',
+                title: '💡 Indice disponible !',
+                text: 'Vous pouvez maintenant consulter l\'indice',
+                timer: 3000,
+                showConfirmButton: false
+            });
             
             // Mettre à jour l'interface
             indiceButton.innerHTML = '<i class="fas fa-lightbulb"></i> Consulter l\'indice';
@@ -185,7 +223,7 @@ function startIndiceTimer() {
             // Mettre à jour le compte à rebours
             const minutes = Math.floor(remaining / 60);
             const seconds = remaining % 60;
-            const timeStr = \`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}\`;
+            const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             
             const countdownSpan = indiceButton.querySelector('#indice-countdown');
             if (countdownSpan) {
@@ -195,7 +233,7 @@ function startIndiceTimer() {
     }, 1000);
 }
 
-// Fonction pour consulter l'indice
+// FONCTION consulterIndice - COPIER DEPUIS texte_libre.php
 function consulterIndice() {
     if (indiceConsulte) {
         return;
@@ -214,12 +252,12 @@ function consulterIndice() {
         const indiceContent = document.createElement('div');
         indiceContent.id = 'indice-content';
         indiceContent.className = 'mt-2';
-        indiceContent.innerHTML = \`
+        indiceContent.innerHTML = `
             <div class="alert alert-info">
                 <i class="fas fa-lightbulb"></i>
                 <strong>💡 Indice :</strong> <?php echo htmlspecialchars($donnees['indice']); ?>
             </div>
-        \`;
+        `;
         
         // Insérer l'indice après le bouton
         const indiceButton = indiceSection.querySelector('button');
@@ -262,9 +300,11 @@ function consulterIndice() {
     });
 }
 
-// Démarrer le timer au chargement de la page
+// VÉRIFICATION AU CHARGEMENT DE LA PAGE - COPIER DEPUIS texte_libre.php
 document.addEventListener('DOMContentLoaded', function() {
+    // Vérifier si on doit démarrer le timer de l'indice
     if (!indiceAvailable && !indiceConsulte) {
         startIndiceTimer();
     }
-});</script>
+});
+</script>
