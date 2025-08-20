@@ -1,59 +1,45 @@
 <?php
-// Récupération des données de l'énigme
-$stmt = $pdo->prepare("SELECT donnees FROM enigmes WHERE id = ?");
-$stmt->execute([$lieu['enigme_id']]);
-$enigme_data = $stmt->fetch(PDO::FETCH_ASSOC);
-$donnees = json_decode($enigme_data['donnees'], true);
-
-// Vérifier si l'indice a déjà été consulté par cette équipe
-$indice_consulte = false;
-if (isset($_SESSION['team_name'])) {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) FROM indices_consultes ic
-        JOIN equipes e ON ic.equipe_id = e.id
-        JOIN lieux l ON ic.lieu_id = l.id
-        WHERE e.nom = ? AND l.slug = ? AND ic.enigme_id = ?
-    ");
-    $stmt->execute([$_SESSION['team_name'], $lieu_slug, $lieu['enigme_id']]);
-    $indice_consulte = $stmt->fetchColumn() > 0;
+// Vérification que l'énigme existe et est de type texte libre
+if (!isset($lieu['enigme_id']) || !isset($lieu['donnees'])) {
+    echo '<div class="alert alert-danger">Aucune énigme configurée pour ce lieu</div>';
+    return;
 }
 
-// Variables pour le timing - NE PAS RECRÉER
-$enigme_session_key = "enigme_start_{$lieu['id']}_{$equipe['id']}";
-$indice_session_key = "indice_start_{$lieu['id']}_{$equipe['id']}";
+$donnees = json_decode($lieu['donnees'], true);
+if (json_last_error() !== JSON_ERROR_NONE || !isset($donnees['question']) || !isset($donnees['reponse_correcte'])) {
+    echo '<div class="alert alert-danger">Données d\'énigme invalides</div>';
+    return;
+}
 
-// RÉCUPÉRER les valeurs de la session, ne pas les recréer
-$enigme_start_time = $_SESSION[$enigme_session_key];
-$indice_start_time = $_SESSION[$indice_session_key];
+// Vérifier si l'indice a été consulté pour cette énigme
+$indice_consulte = false;
+$indice_available = false;
+$enigme_start_time = 0;
+$remaining_time = 0;
+$delai_indice_secondes = 0;
 
-// Calculer les temps écoulés avec le délai dynamique
-$enigme_elapsed_time = time() - $enigme_start_time;
-$delai_indice_secondes = $lieu['delai_indice'] * 60; // Délai dynamique en secondes
-$indice_available = ($enigme_elapsed_time >= $delai_indice_secondes);
-$remaining_time = max(0, $delai_indice_secondes - $enigme_elapsed_time);
-
-// Debug pour vérifier la persistance
-$debug_info = [
-    'enigme_start' => date('H:i:s', $enigme_start_time),
-    'indice_start' => date('H:i:s', $indice_start_time),
-    'enigme_elapsed' => gmdate('i:s', $enigme_elapsed_time),
-    'indice_elapsed' => gmdate('i:s', $indice_elapsed_time),
-    'remaining' => gmdate('i:s', $remaining_time),
-    'indice_available' => $indice_available,
-    'session_keys' => [$enigme_session_key, $indice_session_key],
-    'session_exists' => [
-        'enigme' => isset($_SESSION[$enigme_session_key]),
-        'indice' => isset($_SESSION[$indice_session_key])
-    ]
-];
+if (isset($enigme_start_time) && $enigme_start_time > 0) {
+    $enigme_elapsed_time = time() - $enigme_start_time;
+    $delai_indice_secondes = $lieu['delai_indice'] * 60; // Convertir en secondes
+    $indice_available = ($enigme_elapsed_time >= $delai_indice_secondes);
+    $remaining_time = max(0, $delai_indice_secondes - $enigme_elapsed_time);
+    
+    if (isset($equipe['id']) && isset($lieu['enigme_id'])) {
+        $stmt = $pdo->prepare("SELECT * FROM indices_consultations WHERE equipe_id = ? AND enigme_id = ?");
+        $stmt->execute([$equipe['id'], $lieu['enigme_id']]);
+        $indice_consulte = ($stmt->fetch() !== false);
+    }
+}
 ?>
 
-<div class='enigme-content'>
-    <h4>🎯 Question principale</h4>
-    <p class='lead'><?php echo htmlspecialchars($donnees['question']); ?></p>
+<div class='enigme-container'>
+    <div class='question mb-4'>
+        <h4 class='text-primary'>❓ Question :</h4>
+        <p class='lead'><?php echo htmlspecialchars($donnees['question']); ?></p>
+    </div>
     
     <?php if (!empty($donnees['indice'])): ?>
-        <div class="indice-section mt-3">
+        <div class='indice-section mb-4'>
             <?php if ($indice_consulte): ?>
                 <!-- Indice déjà consulté -->
                 <div class="alert alert-info">
@@ -89,45 +75,101 @@ $debug_info = [
         </div>
     <?php endif; ?>
     
-    <div class='reponse-libre mt-4'>
-        <label for="reponse_libre" class="form-label">
-            <strong>✍️ Votre réponse :</strong>
-        </label>
-        <input type="text" class="form-control form-control-lg" 
-               id="reponse_libre" 
-               placeholder="Tapez votre réponse ici..."
-               maxlength="100">
-        <small class="text-muted">Réponse sensible à la casse</small>
-    </div>
-    
-    <div class='text-center mt-4'>
-        <button type='button' class='btn btn-dark btn-lg' onclick='validateTextAnswer()'>
-            ✅ Valider ma réponse
-        </button>
+    <div class='reponse-section'>
+        <div class='form-group mb-3'>
+            <label for='reponse_libre' class='form-label'>
+                <strong>💬 Votre réponse :</strong>
+            </label>
+            <input type='text' 
+                   class='form-control form-control-lg' 
+                   id='reponse_libre' 
+                   placeholder='Tapez votre réponse ici...'
+                   autocomplete='off'>
+        </div>
+        
+        <div class='text-center'>
+            <button type='button' class='btn btn-dark btn-lg' onclick='validateAnswer()'>
+                ✅ Valider ma réponse
+            </button>
+        </div>
     </div>
 </div>
 
+<?php
+// Inclusion des fonctions centralisées
+include 'includes/enigme-functions.php';
+?>
+
 <script>
+// Variables PHP passées au JavaScript
 let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
 let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
 
-// Variables PHP passées au JavaScript - SUPPRIMER la redéclaration de DELAI_INDICE_SECONDES
-const LIEU_ID = <?php echo $lieu['id'] ?? 'null'; ?>;
-const EQUIPE_ID = <?php echo $equipe['id'] ?? 'null'; ?>;
-const ENIGME_ID = <?php echo $lieu['enigme_id'] ?? 'null'; ?>;
-// SUPPRIMER cette ligne : const DELAI_INDICE_SECONDES = <?php echo $lieu['delai_indice'] * 60; ?>;
-
-// Fonction pour démarrer le timer de l'indice
-function startIndiceTimer() {
-    // Debug mobile avec SweetAlert2 au lieu de alert
-    // Swal.fire({
-    //     icon: 'info',
-    //     title: 'Timer démarré !',
-    //     text: 'Temps restant: <?php echo gmdate('i:s', $remaining_time); ?>',
-    //     timer: 2000,
-    //     showConfirmButton: false
-    // });
+// Fonction de validation simplifiée - utilise la fonction centralisée
+function validateAnswer() {
+    const reponseCorrecte = '<?php echo htmlspecialchars($donnees['reponse_correcte']); ?>';
+    const reponsesAcceptees = <?php echo json_encode($donnees['reponses_acceptees'] ?? []); ?>;
+    const score = 10; // Score par défaut
     
+    // Appel de la fonction centralisée
+    validateTextAnswer(reponseCorrecte, reponsesAcceptees, score);
+}
+
+// Permettre la validation avec la touche Entrée
+document.getElementById('reponse_libre').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        validateAnswer();
+    }
+});
+
+// FONCTION consulterIndice - COPIER DEPUIS l'original
+function consulterIndice() {
+    if (indiceConsulte) {
+        return;
+    }
+    
+    // Afficher l'indice
+    const indiceContent = document.getElementById('indice-content');
+    if (indiceContent) {
+        indiceContent.style.display = 'block';
+    }
+    
+    // Marquer comme consulté dans la base de données
+    fetch('save_indice_consultation.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            equipe_id: <?php echo $equipe['id'] ?? 'null'; ?>,
+            enigme_id: <?php echo $lieu['enigme_id'] ?? 'null'; ?>
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Consultation d\'indice enregistrée');
+            indiceConsulte = true;
+            
+            // Mettre à jour l'interface
+            const indiceButton = document.querySelector('button[onclick="consulterIndice()"]');
+            if (indiceButton) {
+                indiceButton.innerHTML = '<i class="fas fa-check"></i> Indice consulté';
+                indiceButton.className = 'btn btn-secondary btn-sm';
+                indiceButton.disabled = true;
+                indiceButton.onclick = null;
+            }
+        } else {
+            console.error('Erreur enregistrement consultation:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+    });
+}
+
+// FONCTION startIndiceTimer - COPIER DEPUIS l'original
+function startIndiceTimer() {
     if (indiceAvailable) {
         return;
     }
@@ -147,8 +189,7 @@ function startIndiceTimer() {
     const countdown = setInterval(() => {
         const now = Math.floor(Date.now() / 1000);
         const enigmeStart = <?php echo $enigme_start_time; ?>;
-        // Utiliser la variable globale DELAI_INDICE_SECONDES depuis enigme_launcher.php
-        const remaining = DELAI_INDICE_SECONDES - (now - enigmeStart);
+        const remaining = <?php echo $delai_indice_secondes; ?> - (now - enigmeStart);
         
         if (remaining <= 0) {
             // L'indice est maintenant disponible
@@ -189,192 +230,11 @@ function startIndiceTimer() {
     }, 1000);
 }
 
-// Fonction pour consulter l'indice
-function consulterIndice() {
-    if (indiceConsulte) {
-        return;
-    }
-    
-    // Créer et afficher l'indice dynamiquement
-    const indiceSection = document.querySelector('.indice-section');
-    if (indiceSection) {
-        // Supprimer l'ancien contenu de l'indice s'il existe
-        const oldIndiceContent = document.getElementById('indice-content');
-        if (oldIndiceContent) {
-            oldIndiceContent.remove();
-        }
-        
-        // Créer le nouveau contenu de l'indice
-        const indiceContent = document.createElement('div');
-        indiceContent.id = 'indice-content';
-        indiceContent.className = 'mt-2';
-        indiceContent.innerHTML = `
-            <div class="alert alert-info">
-                <i class="fas fa-lightbulb"></i>
-                <strong>💡 Indice :</strong> <?php echo htmlspecialchars($donnees['indice']); ?>
-            </div>
-        `;
-        
-        // Insérer l'indice après le bouton
-        const indiceButton = indiceSection.querySelector('button');
-        if (indiceButton) {
-            indiceButton.parentNode.insertBefore(indiceContent, indiceButton.nextSibling);
-        }
-    }
-    
-    // Mettre à jour le bouton
-    const indiceButton = document.querySelector('.indice-section button.btn-info');
-    if (indiceButton) {
-        indiceButton.innerHTML = '<i class="fas fa-check"></i> Indice consulté';
-        indiceButton.className = 'btn btn-secondary btn-sm';
-        indiceButton.disabled = true;
-        indiceButton.onclick = null;
-    }
-    
-    // Marquer comme consulté
-    indiceConsulte = true;
-    
-    // Enregistrer la consultation côté serveur
-    fetch('save_indice_consultation.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            lieu: LIEU_SLUG,
-            enigme_id: ENIGME_ID
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // SUPPRIMER cette popup de succès
-            // Swal.fire({
-            //     icon: 'success',
-            //     title: '✅ Succès !',
-            //     text: 'Consultation d\'indice enregistrée',
-            //     timer: 2000,
-            //     showConfirmButton: false
-            // });
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: '❌ Erreur',
-                text: 'Erreur enregistrement indice: ' + data.error
-            });
-        }
-    })
-    .catch(error => {
-        Swal.fire({
-            icon: 'error',
-            title: '❌ Erreur',
-            text: 'Erreur: ' + error
-        });
-    });
-}
-
-function validateTextAnswer() {
-    const reponse = document.getElementById('reponse_libre').value.trim();
-    
-    if (!reponse) {
-        Swal.fire({
-            icon: 'warning',
-            title: '⚠️ Attention',
-            text: 'Veuillez saisir une réponse avant de valider.'
-        });
-        return;
-    }
-    
-    const reponseCorrecte = '<?php echo htmlspecialchars($donnees['reponse_correcte']); ?>';
-    const reponsesAcceptees = <?php echo json_encode($donnees['reponses_acceptees'] ?? []); ?>;
-    
-    // Vérifier la réponse exacte et les réponses acceptées
-    let reponseValide = false;
-    
-    // Réponse exacte (sensible à la casse)
-    if (reponse === reponseCorrecte) {
-        reponseValide = true;
-    }
-    
-    // Réponses acceptées (insensibles à la casse)
-    if (!reponseValide && reponsesAcceptees.length > 0) {
-        reponseValide = reponsesAcceptees.some(rep => 
-            reponse.toLowerCase() === rep.toLowerCase()
-        );
-    }
-    
-    if (reponseValide) {
-        // Mise à jour du parcours
-        updateParcoursStatus(true);
-        
-        Swal.fire({
-            icon: 'success',
-            title: '🎉 Bravo !',
-            text: 'Vous avez résolu l\'énigme !',
-            confirmButtonText: 'Continuer',
-            allowOutsideClick: false
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'lieux/' + LIEU_SLUG + '/';
-            }
-        });
-    } else {
-        Swal.fire({
-            icon: 'error',
-            title: '❌ Réponse incorrecte',
-            text: 'Réfléchissez et réessayez...',
-            confirmButtonText: 'Réessayer'
-        });
-        
-        // Vider le champ de réponse pour faciliter la nouvelle tentative
-        document.getElementById('reponse_libre').value = '';
-        document.getElementById('reponse_libre').focus();
-    }
-}
-
-function updateParcoursStatus(success) {
-    fetch('update_parcours_status.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            lieu: LIEU_SLUG,
-            team: TEAM_NAME,
-            success: success,
-            score: 10
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('Statut du parcours mis à jour');
-        } else {
-            console.error('Erreur mise à jour parcours:', data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Erreur:', error);
-    });
-}
-
-// Permettre la validation avec la touche Entrée
-document.getElementById('reponse_libre').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        validateTextAnswer();
-    }
-});
-
 // Vérification au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
-    //alert('Page chargée ! Vérification du timer...');
-    
     // Vérifier si on doit démarrer le timer de l'indice
     if (!indiceAvailable && !indiceConsulte) {
-        //alert('Démarrage automatique du timer...');
         startIndiceTimer();
-    } else {
-        //alert('Timer non nécessaire ou déjà consulté');
     }
 });
 </script>

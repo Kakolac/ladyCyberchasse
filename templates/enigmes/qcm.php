@@ -103,72 +103,16 @@ $remaining_time = max(0, $delai_indice_secondes - $enigme_elapsed_time);
 let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
 let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
 
-const LIEU_ID = <?php echo $lieu['id'] ?? 'null'; ?>;
-const EQUIPE_ID = <?php echo $equipe['id'] ?? 'null'; ?>;
-const ENIGME_ID = <?php echo $lieu['enigme_id'] ?? 'null'; ?>;
+// Les variables globales sont maintenant définies par enigme-functions.php
+// LIEU_ID, EQUIPE_ID, ENIGME_ID sont disponibles
 
+// Fonction de validation simplifiée - utilise la fonction centralisée
 function validateAnswer() {
-    const selectedAnswer = document.querySelector('input[name="answer"]:checked');
-    
-    if (!selectedAnswer) {
-        Swal.fire({
-            title: '⚠️ Attention',
-            text: 'Veuillez sélectionner une réponse avant de valider.',
-            icon: 'warning',
-            confirmButtonText: 'OK'
-        });
-        return;
-    }
-    
-    const answer = selectedAnswer.value;
     const reponseCorrecte = '<?php echo $donnees['reponse_correcte']; ?>';
+    const score = 10; // Score par défaut
     
-    if (answer === reponseCorrecte) {
-        // Mise à jour du parcours
-        updateParcoursStatus(true);
-        
-        Swal.fire({
-            title: '🎉 Bravo !',
-            text: 'Vous avez résolu l\'énigme !',
-            icon: 'success',
-            confirmButtonText: 'Continuer l\'aventure'
-        }).then((result) => {
-            window.location.href = 'lieux/' + LIEU_SLUG + '/';
-        });
-    } else {
-        Swal.fire({
-            title: '❌ Réponse incorrecte',
-            text: 'Réfléchissez et réessayez...',
-            icon: 'error',
-            confirmButtonText: 'Réessayer'
-        });
-    }
-}
-
-function updateParcoursStatus(success) {
-    fetch('update_parcours_status.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            lieu: LIEU_SLUG,
-            team: TEAM_NAME,
-            success: success,
-            score: 10
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log('Statut du parcours mis à jour');
-        } else {
-            console.error('Erreur mise à jour parcours:', data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Erreur:', error);
-    });
+    // Appel de la fonction centralisée
+    validateQCMAnswer(reponseCorrecte, score);
 }
 
 // FONCTION startIndiceTimer - COPIER DEPUIS texte_libre.php

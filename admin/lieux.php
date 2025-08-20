@@ -2,11 +2,18 @@
 session_start();
 require_once '../config/connexion.php';
 
+// Logs pour le débogage
+error_log("=== DÉBUT TRAITEMENT CRÉATION LIEU ===");
+error_log("POST reçu : " . print_r($_POST, true));
+
 // Vérification des droits d'administration
 if (!isset($_SESSION['admin']) || $_SESSION['admin'] !== true) {
     header('Location: ../login.php');
     exit();
 }
+
+$success_message = '';
+$error_message = '';
 
 // Traitement des actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -224,14 +231,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 // Récupération des lieux avec leurs énigmes
 try {
     $stmt = $pdo->query("
-        SELECT l.*, e.id as enigme_id, e.titre as enigme_titre, e.actif as enigme_active,
-               te.nom as type_nom, te.template, COALESCE(l.delai_indice, 6) as delai_indice
-        FROM lieux l 
-        LEFT JOIN enigmes e ON l.enigme_id = e.id 
+        SELECT 
+            l.*,
+            e.id AS enigme_id,
+            e.titre AS enigme_titre,
+            e.actif AS enigme_active,
+            te.nom AS type_nom,
+            te.template,
+            COALESCE(l.delai_indice, 6) AS delai_indice,
+            l.type_lieu
+        FROM lieux l
+        LEFT JOIN enigmes e ON l.enigme_id = e.id
         LEFT JOIN types_enigmes te ON e.type_enigme_id = te.id
         ORDER BY l.ordre, l.nom
     ");
     $lieux = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // NOUVEAU : Debug des données
+    echo "<script>
+        console.log('Données des lieux :', " . json_encode($lieux) . ");
+    </script>";
+    
 } catch (Exception $e) {
     $error = "Erreur lors de la récupération des lieux: " . $e->getMessage();
 }
@@ -287,29 +307,62 @@ $breadcrumb_items = [
 include 'includes/header.php';
 ?>
 
-        <!-- Messages de succès/erreur -->
-        <?php if (isset($success_message)): ?>
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <?php echo $success_message; ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
+<!-- Zone de debug -->
+<div id="debugZone" class="position-fixed bottom-0 end-0 p-3" style="max-height: 300px; width: 400px; overflow-y: auto; background: rgba(0,0,0,0.8); color: #00ff00; font-family: monospace; font-size: 12px; z-index: 9999;">
+    <h6 class="text-white">🐛 Debug Console</h6>
+    <div id="debugContent" style="white-space: pre-wrap;"></div>
+</div>
+
+<script>
+// Zone de debug
+const debugZone = document.createElement('div');
+debugZone.id = 'debugZone';
+debugZone.className = 'position-fixed bottom-0 end-0 p-3';
+debugZone.style.cssText = 'max-height: 300px; width: 400px; overflow-y: auto; background: rgba(0,0,0,0.8); color: #00ff00; font-family: monospace; font-size: 12px; z-index: 9999;';
+debugZone.innerHTML = '<h6 class="text-white">🐛 Debug Console</h6><div id="debugContent" style="white-space: pre-wrap;"></div>';
+document.body.appendChild(debugZone);
+
+function debugLog(message, data = null) {
+    const debugContent = document.getElementById('debugContent');
+    const timestamp = new Date().toLocaleTimeString();
+    let logMessage = `[${timestamp}] ${message}`;
+    
+    if (data !== null) {
+        logMessage += '\n' + JSON.stringify(data, null, 2);
+    }
+    
+    debugContent.innerHTML = logMessage + '\n\n' + debugContent.innerHTML;
+}
+
+function debugFormSubmit() {
+    const form = document.getElementById('createLieuForm');
+    const formData = new FormData(form);
+    
+    debugLog('=== SOUMISSION DU FORMULAIRE ===');
+    for (let [key, value] of formData.entries()) {
+        debugLog(`${key}:`, value);
+    }
+}
+
+// Écouteurs pour les radios
+document.addEventListener('DOMContentLoaded', function() {
+    const radios = document.querySelectorAll('input[name="type_lieu"]');
+    radios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            debugLog('Radio changé', {
+                id: this.id,
+                value: this.value,
+                checked: this.checked
+            });
+        });
+    });
+});
+</script>
+
+
         
-        <?php if (isset($error_message)): ?>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <?php echo $error_message; ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-        
-        <?php if (isset($warning_message)): ?>
-            <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                <i class="fas fa-exclamation-triangle"></i>
-                <?php echo $warning_message; ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-        
+
+
         <?php if (isset($info_message)): ?>
             <div class="alert alert-info alert-dismissible fade show" role="alert">
                 <i class="fas fa-info-circle"></i>
@@ -412,7 +465,11 @@ include 'includes/header.php';
                                 <div class="card lieu-card h-100">
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h5 class="mb-0">
-                                            <i class="fas fa-map-marker-alt text-primary"></i>
+                                            <?php if ($lieu['type_lieu'] === 'fin'): ?>
+                                                <i class="fas fa-flag-checkered text-success"></i>
+                                            <?php else: ?>
+                                                <i class="fas fa-map-marker-alt text-primary"></i>
+                                            <?php endif; ?>
                                             <?php echo htmlspecialchars($lieu['nom']); ?>
                                         </h5>
                                         <div class="d-flex gap-2">
@@ -431,6 +488,11 @@ include 'includes/header.php';
                                                 <i class="fas fa-cog"></i> Gestion
                                             </button>
                                             
+                                            <!-- Type de lieu -->
+                                            <span class="badge <?php echo $lieu['type_lieu'] === 'fin' ? 'bg-success' : 'bg-primary'; ?>">
+                                                <?php echo $lieu['type_lieu'] === 'fin' ? 'Lieu de fin' : 'Lieu standard'; ?>
+                                            </span>
+                                            <!-- Statut existant -->
                                             <span class="badge bg-<?php echo $lieu['statut'] === 'actif' ? 'success' : 'secondary'; ?>">
                                                 <?php echo $lieu['statut']; ?>
                                             </span>
@@ -445,92 +507,97 @@ include 'includes/header.php';
                                                 <small class="text-muted">Ordre :</small>
                                                 <strong><?php echo $lieu['ordre']; ?></strong>
                                             </div>
-                                            <div class="col-6">
-                                                <small class="text-muted">Temps limite :</small>
-                                                <strong><?php echo gmdate('i:s', $lieu['temps_limite']); ?></strong>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- NOUVEAU : Affichage du délai d'indice -->
-                                        <div class="row mb-3">
-                                            <div class="col-12">
-                                                <small class="text-muted">Délai d'indice :</small>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <strong><?php echo $lieu['delai_indice']; ?> minutes</strong>
-                                                    <button type="button" class="btn btn-outline-primary btn-sm" 
-                                                            data-bs-toggle="modal" 
-                                                            data-bs-target="#delaiIndiceModal"
-                                                            data-lieu-id="<?php echo $lieu['id']; ?>"
-                                                            data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
-                                                            data-delai-actuel="<?php echo $lieu['delai_indice']; ?>">
-                                                        <i class="fas fa-clock"></i> Modifier
-                                                    </button>
+                                            <?php if ($lieu['type_lieu'] !== 'fin'): ?>
+                                                <div class="col-6">
+                                                    <small class="text-muted">Temps limite :</small>
+                                                    <strong><?php echo gmdate('i:s', $lieu['temps_limite']); ?></strong>
                                                 </div>
                                             </div>
-                                        </div>
+                                            
+                                            <!-- NOUVEAU : Affichage du délai d'indice seulement pour les lieux standards -->
+                                            <div class="row mb-3">
+                                                <div class="col-12">
+                                                    <small class="text-muted">Délai d'indice :</small>
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <strong><?php echo $lieu['delai_indice']; ?> minutes</strong>
+                                                        <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#delaiIndiceModal"
+                                                                data-lieu-id="<?php echo $lieu['id']; ?>"
+                                                                data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
+                                                                data-delai-actuel="<?php echo $lieu['delai_indice']; ?>">
+                                                            <i class="fas fa-clock"></i> Modifier
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <?php endif; ?>
 
-                                        <?php if ($lieu['enigme_id']): ?>
-                                            <!-- Énigme affectée -->
-                                            <div class="enigme-preview mb-3">
-                                                <h6><i class="fas fa-puzzle-piece text-success"></i> Énigme affectée</h6>
-                                                <p class="mb-2"><strong><?php echo htmlspecialchars($lieu['enigme_titre']); ?></strong></p>
-                                                <div class="enigme-status">
-                                                    <span class="badge bg-info"><?php echo htmlspecialchars($lieu['type_nom']); ?></span>
-                                                    <span class="badge bg-<?php echo $lieu['enigme_active'] ? 'success' : 'secondary'; ?>">
-                                                        <?php echo $lieu['enigme_active'] ? 'Active' : 'Inactive'; ?>
-                                                    </span>
+                                            <?php if ($lieu['type_lieu'] === 'fin'): ?>
+                                                <!-- Message pour lieu de fin -->
+                                                <div class="alert alert-success">
+                                                    <i class="fas fa-flag-checkered"></i>
+                                                    <strong>Lieu de fin</strong>
+                                                    <br>
+                                                    <small>Ce lieu affiche la page de fin avec les statistiques du parcours</small>
                                                 </div>
-                                            </div>
-                                        <?php else: ?>
-                                            <!-- Aucune énigme configurée -->
-                                            <div class="alert alert-warning">
-                                                <i class="fas fa-exclamation-triangle"></i>
-                                                <strong>Aucune énigme configurée</strong>
-                                                <br>
-                                                <small>Cliquez sur "Affecter une énigme" pour en ajouter une</small>
-                                            </div>
-                                        <?php endif; ?>
-                                        
-                                        <div class="d-flex gap-2">
-                                            <?php if ($lieu['enigme_id']): ?>
-                                                <!-- Actions pour lieu avec énigme -->
-                                                <button type="button" class="btn btn-primary btn-sm" 
-                                                        data-bs-toggle="modal" 
-                                                        data-bs-target="#affecterEnigmeModal"
-                                                        data-lieu-id="<?php echo $lieu['id']; ?>"
-                                                        data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
-                                                        data-enigme-id="<?php echo $lieu['enigme_id']; ?>">
-                                                    <i class="fas fa-edit"></i> Modifier l'énigme
-                                                </button>
-                                                
-                                                <form method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer l\'affectation de cette énigme ?')">
-                                                    <input type="hidden" name="action" value="supprimer_enigme">
-                                                    <input type="hidden" name="lieu_id" value="<?php echo $lieu['id']; ?>">
-                                                    <button type="submit" class="btn btn-warning btn-sm">
-                                                        <i class="fas fa-unlink"></i> Supprimer l'affectation
-                                                    </button>
-                                                </form>
-                                                
-                                                <!-- NOUVEAU : Bouton supprimer le lieu -->
-                                                <form method="POST" style="display: inline;" onsubmit="return confirm('⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer définitivement ce lieu ? Cette action est irréversible et supprimera également toutes les données associées.')">
-                                                    <input type="hidden" name="action" value="supprimer_lieu">
-                                                    <input type="hidden" name="lieu_id" value="<?php echo $lieu['id']; ?>">
-                                                    <button type="submit" class="btn btn-danger btn-sm" 
-                                                            <?php echo $lieu['enigme_requise'] ? 'disabled title="Impossible de supprimer un lieu obligatoire"' : ''; ?>>
-                                                        <i class="fas fa-trash"></i> Supprimer le lieu
-                                                    </button>
-                                                </form>
                                             <?php else: ?>
-                                                <!-- Actions pour lieu sans énigme -->
-                                                <button type="button" class="btn btn-success btn-sm" 
-                                                        data-bs-toggle="modal" 
-                                                        data-bs-target="#affecterEnigmeModal"
-                                                        data-lieu-id="<?php echo $lieu['id']; ?>"
-                                                        data-enigme-id="">
-                                                    <i class="fas fa-plus"></i> Affecter une énigme
-                                                </button>
+                                                <?php if ($lieu['enigme_id']): ?>
+                                                    <!-- Énigme affectée -->
+                                                    <div class="enigme-preview mb-3">
+                                                        <h6><i class="fas fa-puzzle-piece text-success"></i> Énigme affectée</h6>
+                                                        <p class="mb-2"><strong><?php echo htmlspecialchars($lieu['enigme_titre']); ?></strong></p>
+                                                        <div class="enigme-status">
+                                                            <span class="badge bg-info"><?php echo htmlspecialchars($lieu['type_nom']); ?></span>
+                                                            <span class="badge bg-<?php echo $lieu['enigme_active'] ? 'success' : 'secondary'; ?>">
+                                                                <?php echo $lieu['enigme_active'] ? 'Active' : 'Inactive'; ?>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <!-- Aucune énigme configurée -->
+                                                    <div class="alert alert-warning">
+                                                        <i class="fas fa-exclamation-triangle"></i>
+                                                        <strong>Aucune énigme configurée</strong>
+                                                        <br>
+                                                        <small>Cliquez sur "Affecter une énigme" pour en ajouter une</small>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                            
+                                            <div class="d-flex gap-2">
+                                                <?php if ($lieu['type_lieu'] !== 'fin'): ?>
+                                                    <?php if ($lieu['enigme_id']): ?>
+                                                        <!-- Actions pour lieu avec énigme -->
+                                                        <button type="button" class="btn btn-primary btn-sm" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#affecterEnigmeModal"
+                                                                data-lieu-id="<?php echo $lieu['id']; ?>"
+                                                                data-lieu-nom="<?php echo htmlspecialchars($lieu['nom']); ?>"
+                                                                data-enigme-id="<?php echo $lieu['enigme_id']; ?>">
+                                                            <i class="fas fa-edit"></i> Modifier l'énigme
+                                                        </button>
+                                                        
+                                                        <form method="POST" style="display: inline;" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer l\'affectation de cette énigme ?')">
+                                                            <input type="hidden" name="action" value="supprimer_enigme">
+                                                            <input type="hidden" name="lieu_id" value="<?php echo $lieu['id']; ?>">
+                                                            <button type="submit" class="btn btn-warning btn-sm">
+                                                                <i class="fas fa-unlink"></i> Supprimer l'affectation
+                                                            </button>
+                                                        </form>
+                                                    <?php else: ?>
+                                                        <!-- Actions pour lieu sans énigme -->
+                                                        <button type="button" class="btn btn-success btn-sm" 
+                                                                data-bs-toggle="modal" 
+                                                                data-bs-target="#affecterEnigmeModal"
+                                                                data-lieu-id="<?php echo $lieu['id']; ?>"
+                                                                data-enigme-id="">
+                                                            <i class="fas fa-plus"></i> Affecter une énigme
+                                                        </button>
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
                                                 
-                                                <!-- NOUVEAU : Bouton supprimer le lieu (pour lieu sans énigme) -->
+                                                <!-- Bouton supprimer le lieu (toujours disponible) -->
                                                 <form method="POST" style="display: inline;" onsubmit="return confirm('⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer définitivement ce lieu ? Cette action est irréversible.')">
                                                     <input type="hidden" name="action" value="supprimer_lieu">
                                                     <input type="hidden" name="lieu_id" value="<?php echo $lieu['id']; ?>">
@@ -539,7 +606,7 @@ include 'includes/header.php';
                                                         <i class="fas fa-trash"></i> Supprimer le lieu
                                                     </button>
                                                 </form>
-                                            <?php endif; ?>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -671,7 +738,7 @@ include 'includes/header.php';
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="creer-lieux.php">
+                <form method="POST" action="creer-lieux.php" id="createLieuForm">
                     <div class="modal-body">
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -694,7 +761,37 @@ include 'includes/header.php';
                                       placeholder="Description optionnelle du lieu..."></textarea>
                         </div>
                         
-                        <div class="row">
+                        <!-- NOUVEAU : Choix du type de lieu -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <label class="form-label">Type de lieu *</label>
+                                <div class="d-flex gap-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="type_lieu" 
+                                               id="type_standard" value="standard" checked>
+                                        <label class="form-check-label" for="type_standard">
+                                            <i class="fas fa-puzzle-piece"></i> Lieu standard
+                                            <small class="form-text text-muted d-block">
+                                                Avec énigme à résoudre
+                                            </small>
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="type_lieu" 
+                                               id="type_fin" value="fin">
+                                        <label class="form-check-label" for="type_fin">
+                                            <i class="fas fa-flag-checkered"></i> Lieu de fin
+                                            <small class="form-text text-muted d-block">
+                                                Page de fin avec statistiques
+                                            </small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Champs pour énigme (à masquer pour lieu de fin) -->
+                        <div class="row champs-enigme">
                             <div class="col-md-6 mb-3">
                                 <label for="temps_limite" class="form-control-label">Temps limite (secondes) *</label>
                                 <input type="number" class="form-control" id="temps_limite" name="temps_limite" 
@@ -719,7 +816,8 @@ include 'includes/header.php';
                                 </select>
                             </div>
                             
-                            <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <!-- Checkbox énigme requise (à masquer pour lieu de fin) -->
+                            <div class="col-md-6 mb-3 d-flex align-items-end champs-enigme">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="enigme_requise" name="enigme_requise">
                                     <label class="form-check-label" for="enigme_requise">
@@ -946,6 +1044,29 @@ include 'includes/header.php';
                 console.error('Modal creerLieuModal non trouvé');
             }
         }
+    </script>
+
+    <script>
+    // Gestion du type de lieu dans le formulaire de création
+    document.addEventListener('DOMContentLoaded', function() {
+        const typeRadios = document.querySelectorAll('input[name="type_lieu"]');
+        const champsEnigme = document.querySelectorAll('.champs-enigme');
+        
+        function toggleChampsEnigme() {
+            const typeFin = document.getElementById('type_fin').checked;
+            champsEnigme.forEach(champ => {
+                champ.style.display = typeFin ? 'none' : 'block';
+            });
+        }
+        
+        // Ajouter l'écouteur sur chaque radio
+        typeRadios.forEach(radio => {
+            radio.addEventListener('change', toggleChampsEnigme);
+        });
+        
+        // État initial
+        toggleChampsEnigme();
+    });
     </script>
 
 <?php include 'includes/footer.php'; ?>

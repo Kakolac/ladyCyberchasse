@@ -13,6 +13,17 @@ $error_message = '';
 
 // Traitement de la création du lieu
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // Vérification explicite du type
+    if (isset($_POST['type_lieu'])) {
+        $type_lieu = $_POST['type_lieu'];
+        if ($type_lieu !== 'fin' && $type_lieu !== 'standard') {
+            $type_lieu = 'standard'; // Valeur par défaut si invalide
+        }
+    } else {
+        $type_lieu = 'standard';
+    }
+    
     $nom = trim($_POST['nom']);
     $description = trim($_POST['description']);
     $ordre = (int)$_POST['ordre'];
@@ -21,31 +32,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $statut = $_POST['statut'];
     $delai_indice = (int)$_POST['delai_indice'];
     
+    // Avant l'insertion, affichons les valeurs finales
+    $values = [
+        $nom, $slug, $description, $ordre, $temps_limite,
+        $enigme_requise, $statut, $delai_indice, $type_lieu
+    ];
+
     // Génération automatique du slug à partir du nom
     $slug = strtolower(trim($nom));
-    $slug = preg_replace('/[^a-z0-9\s-]/', '', $slug); // Supprimer les caractères spéciaux
-    $slug = preg_replace('/[\s-]+/', '_', $slug); // Remplacer espaces et tirets par des underscores
-    $slug = trim($slug, '_'); // Supprimer les underscores en début/fin
+    $slug = preg_replace('/[^a-z0-9\s-]/', '', $slug);
+    $slug = preg_replace('/[\s-]+/', '_', $slug);
+    $slug = trim($slug, '_');
     
-    if (!empty($nom) && $ordre > 0 && $temps_limite > 0) {
+    if (!empty($nom) && $ordre > 0) {
         try {
-            // 1. Créer le lieu en base de données
+            // Préparation des valeurs selon le type
+            if ($type_lieu === 'fin') {
+                $temps_limite = 0;
+                $enigme_requise = 0;
+                $delai_indice = 0;
+            }
+
+            // 1. Créer le lieu en base de données avec le type
             $stmt = $pdo->prepare("
-                INSERT INTO lieux (nom, slug, description, ordre, temps_limite, enigme_requise, statut, delai_indice) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO lieux (
+                    nom, slug, description, ordre, temps_limite, 
+                    enigme_requise, statut, delai_indice, type_lieu
+                ) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
-            if ($stmt->execute([$nom, $slug, $description, $ordre, $temps_limite, $enigme_requise, $statut, $delai_indice])) {
+            if ($stmt->execute([$nom, $slug, $description, $ordre, $temps_limite,
+                $enigme_requise, $statut, $delai_indice, $type_lieu])) {
                 $lieu_id = $pdo->lastInsertId();
                 
-                // 2. Créer le répertoire du lieu
-                $source_dir = '../templates/TemplateLieu';
+                // 2. Sélection du template selon le type
+                $source_dir = $type_lieu === 'fin' ? '../templates/TemplateLieuFin' : '../templates/TemplateLieu';
                 $target_dir = "../lieux/$slug";
                 
                 if (!is_dir($target_dir)) {
                     if (mkdir($target_dir, 0755, true)) {
                         // 3. Copier tous les fichiers du template
-                        $files = ['index.php', 'enigme.php', 'header.php', 'footer.php', 'style.css'];
+                        $files = ['index.php', 'header.php', 'footer.php', 'style.css'];
+                        // Note : on n'ajoute pas enigme.php pour les lieux de fin
+                        if ($type_lieu === 'standard') {
+                            $files[] = 'enigme.php';
+                        }
                         
                         foreach ($files as $file) {
                             $source_file = "$source_dir/$file";
@@ -56,21 +88,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 
                                 // 4. Remplacer les variables dans les fichiers PHP
                                 if (in_array($file, ['index.php', 'enigme.php'])) {
-                                    // Remplacer 'direction' par le nouveau slug
                                     $content = str_replace("'direction'", "'$slug'", $content);
                                     
-                                    // Remplacer aussi les liens dans index.php
                                     if ($file === 'index.php') {
-                                        $content = str_replace("../../enigme_launcher.php?lieu=direction", "../../enigme_launcher.php?lieu=$slug", $content);
-                                    }
-                                    
-                                    // Remplacer dans enigme.php si il y a des références
-                                    if ($file === 'enigme.php') {
-                                        $content = str_replace("'direction'", "'$slug'", $content);
+                                        $content = str_replace(
+                                            "../../enigme_launcher.php?lieu=direction",
+                                            "../../enigme_launcher.php?lieu=$slug",
+                                            $content
+                                        );
                                     }
                                 }
                                 
-                                // 5. Écrire le fichier modifié
                                 if (file_put_contents($target_file, $content)) {
                                     // Fichier copié et modifié avec succès
                                 } else {
@@ -81,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         $success_message = "✅ Lieu '$nom' créé avec succès !";
                         $success_message .= "<br>📁 Répertoire créé : lieux/$slug/";
-                        $success_message .= "<br>🔧 Variables automatiquement renommées de 'direction' vers '$slug'";
+                        $success_message .= "<br>🔧 Type de lieu : " . ($type_lieu === 'fin' ? 'Page de fin' : 'Standard avec énigme');
                         $success_message .= "<br>🗄️ Lieu ajouté en base de données (ID: $lieu_id)";
                         $success_message .= "<br>🌐 <a href='../lieux/$slug/' target='_blank'>Voir le lieu créé</a>";
                         
@@ -142,7 +170,7 @@ try {
                         <a href="lieux.php" class="btn-close" aria-label="Close"></a>
                     </div>
                     
-                    <form method="POST">
+                    <form method="POST" action="creer-lieux.php" id="createLieuForm">
                         <div class="modal-body">
                             <!-- Messages de succès/erreur -->
                             <?php if (isset($success_message)): ?>
@@ -228,6 +256,38 @@ try {
                                     <li>🌐 Une page web immédiatement accessible</li>
                                 </ul>
                             </div>
+
+                            <!-- NOUVEAU : Choix du type de lieu -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <label class="form-label">Type de lieu *</label>
+                                    <div class="d-flex gap-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="type_lieu" 
+                                                   id="type_standard" value="standard" checked 
+                                                   onclick="console.log('Standard sélectionné');">
+                                            <label class="form-check-label" for="type_standard">
+                                                <i class="fas fa-puzzle-piece"></i> Lieu standard
+                                                <small class="form-text text-muted d-block">
+                                                    Avec énigme à résoudre
+                                                </small>
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="type_lieu" 
+                                                   id="type_fin" value="fin"
+                                                   onclick="console.log('Fin sélectionné');">
+                                            <label class="form-check-label" for="type_fin">
+                                                <i class="fas fa-flag-checkered"></i> Lieu de fin
+                                                <small class="form-text text-muted d-block">
+                                                    Page de fin avec statistiques
+                                                </small>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
                         
                         <div class="modal-footer">
@@ -245,5 +305,20 @@ try {
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Mise à jour du champ caché quand les radios changent
+    document.querySelectorAll('input[name="type_lieu"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            // document.getElementById('type_lieu_hidden').value = this.value; // This line is removed
+        });
+    });
+
+    // Log à la soumission du formulaire
+    document.getElementById('createLieuForm').addEventListener('submit', function(e) {
+        // console.log('Formulaire soumis avec type:', document.getElementById('type_lieu_hidden').value); // This line is removed
+    });
+});
+</script>
 </body>
 </html>
