@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Vérification explicite du type
     if (isset($_POST['type_lieu'])) {
         $type_lieu = $_POST['type_lieu'];
-        if ($type_lieu !== 'fin' && $type_lieu !== 'standard') {
+        if (!in_array($type_lieu, ['fin', 'standard', 'demarrage'])) {
             $type_lieu = 'standard'; // Valeur par défaut si invalide
         }
     } else {
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($nom) && $ordre > 0) {
         try {
             // Préparation des valeurs selon le type
-            if ($type_lieu === 'fin') {
+            if ($type_lieu === 'fin' || $type_lieu === 'demarrage') {
                 $temps_limite = 0;
                 $enigme_requise = 0;
                 $delai_indice = 0;
@@ -67,7 +67,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $lieu_id = $pdo->lastInsertId();
                 
                 // 2. Sélection du template selon le type
-                $source_dir = $type_lieu === 'fin' ? '../templates/TemplateLieuFin' : '../templates/TemplateLieu';
+                $source_dir = '../templates/TemplateLieu'; // Par défaut
+                if ($type_lieu === 'fin') {
+                    $source_dir = '../templates/TemplateLieuFin';
+                } elseif ($type_lieu === 'demarrage') {
+                    $source_dir = '../templates/TemplateLieuDemarrage';
+                }
                 $target_dir = "../lieux/$slug";
                 
                 if (!is_dir($target_dir)) {
@@ -270,6 +275,17 @@ try {
                                                 <i class="fas fa-puzzle-piece"></i> Lieu standard
                                                 <small class="form-text text-muted d-block">
                                                     Avec énigme à résoudre
+                                                </small>
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="type_lieu" 
+                                                   id="type_demarrage" value="demarrage"
+                                                   onclick="console.log('Demarrage sélectionné');">
+                                            <label class="form-check-label" for="type_demarrage">
+                                                <i class="fas fa-play"></i> Lieu de démarrage
+                                                <small class="form-text text-muted d-block">
+                                                    Page de démarrage du parcours
                                                 </small>
                                             </label>
                                         </div>

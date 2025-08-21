@@ -418,13 +418,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     <!-- Nouvelle structure de grille -->
                     <div class="row g-4"> <!-- Ajout de g-4 pour l'espacement -->
                         <?php foreach ($lieux as $lieu): ?>
-                            <div class="col-12 col-md-6 col-xl-4"> <!-- Modification des colonnes -->
-                                <div class="card lieu-card h-100 shadow-sm"> <!-- Ajout de shadow-sm -->
+                            <div class="col-12 col-md-6 col-xl-4">
+                                <div class="card lieu-card h-100 shadow-sm">
                                     <div class="card-header d-flex justify-content-between align-items-center 
-                                                <?php echo $lieu['type_lieu'] === 'fin' ? 'bg-success text-white' : 'bg-primary text-white'; ?>">
+                                                <?php 
+                                                if ($lieu['type_lieu'] === 'fin') {
+                                                    echo 'bg-success text-white';
+                                                } elseif ($lieu['type_lieu'] === 'demarrage') {
+                                                    echo 'bg-primary text-white';
+                                                } else {
+                                                    echo 'bg-primary text-white';
+                                                }
+                                                ?>">
                                         <h5 class="mb-0">
                                             <?php if ($lieu['type_lieu'] === 'fin'): ?>
                                                 <i class="fas fa-flag-checkered"></i>
+                                            <?php elseif ($lieu['type_lieu'] === 'demarrage'): ?>
+                                                <i class="fas fa-play"></i>
                                             <?php else: ?>
                                                 <i class="fas fa-map-marker-alt"></i>
                                             <?php endif; ?>
@@ -440,12 +450,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                         </div>
                                     </div>
                                     <div class="card-body">
-                                        <!-- Contenu existant -->
                                         <?php if ($lieu['type_lieu'] === 'fin'): ?>
                                             <div class="alert alert-success mb-3">
                                                 <i class="fas fa-flag-checkered"></i>
                                                 <strong>Lieu de fin</strong>
                                                 <p class="mb-0 small">Page de fin avec statistiques</p>
+                                            </div>
+                                        <?php elseif ($lieu['type_lieu'] === 'demarrage'): ?>
+                                            <div class="alert alert-info mb-3">
+                                                <i class="fas fa-play"></i>
+                                                <strong>Lieu de démarrage</strong>
+                                                <p class="mb-0 small">Page de démarrage du parcours</p>
                                             </div>
                                         <?php else: ?>
                                             <div class="mb-3">
@@ -477,7 +492,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                     </div>
                                     <div class="card-footer bg-light">
                                         <div class="d-flex gap-2 flex-wrap">
-                                            <!-- Boutons d'action -->
                                             <button type="button" class="btn btn-info btn-sm" 
                                                     data-bs-toggle="modal" 
                                                     data-bs-target="#gestionLieuModal"
@@ -492,7 +506,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 <i class="fas fa-cog"></i> Gérer
                                             </button>
                                             
-                                            <?php if ($lieu['type_lieu'] !== 'fin'): ?>
+                                            <?php if ($lieu['type_lieu'] === 'standard'): ?>
                                                 <button type="button" class="btn btn-primary btn-sm"
                                                         data-bs-toggle="modal" 
                                                         data-bs-target="#affecterEnigmeModal"
@@ -503,7 +517,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 </button>
                                             <?php endif; ?>
 
-                                            <!-- Bouton Supprimer -->
                                             <form method="POST" style="display: inline;" 
                                                   onsubmit="return confirm('⚠️ ATTENTION : Êtes-vous sûr de vouloir supprimer définitivement ce lieu ? Cette action est irréversible.')">
                                                 <input type="hidden" name="action" value="supprimer_lieu">
@@ -679,6 +692,16 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <i class="fas fa-puzzle-piece"></i> Lieu standard
                                             <small class="form-text text-muted d-block">
                                                 Avec énigme à résoudre
+                                            </small>
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="type_lieu" 
+                                               id="type_demarrage" value="demarrage">
+                                        <label class="form-check-label" for="type_demarrage">
+                                            <i class="fas fa-play"></i> Lieu de démarrage
+                                            <small class="form-text text-muted d-block">
+                                                Page de démarrage du parcours
                                             </small>
                                         </label>
                                     </div>
@@ -952,8 +975,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         function toggleChampsEnigme() {
             const typeFin = document.getElementById('type_fin').checked;
+            const typeDemarrage = document.getElementById('type_demarrage').checked;
             champsEnigme.forEach(champ => {
-                champ.style.display = typeFin ? 'none' : 'block';
+                if (typeFin || typeDemarrage) {
+                    champ.style.display = 'none';
+                } else {
+                    champ.style.display = 'block';
+                }
             });
         }
         
