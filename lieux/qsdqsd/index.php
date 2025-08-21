@@ -9,7 +9,7 @@ require_once '../../config/connexion.php';
 
 // Récupération des informations de l'équipe et du lieu
 $team_name = $_SESSION['team_name'];
-$lieu_slug = 'direction';
+$lieu_slug = 'qsdqsd';
 
 // Récupération de l'équipe
 $stmt = $pdo->prepare("SELECT id FROM equipes WHERE nom = ?");
@@ -31,19 +31,49 @@ if (!$lieu) {
     exit();
 }
 
-// Appel automatique à update_parcours_status.php
-$ch = curl_init('../../update_parcours_status.php');
-curl_setopt($ch, CURLOPT_POST, 1);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-    'lieu' => $lieu_slug,
-    'team' => $team_name,
-    'success' => true,
-    'score' => 10
-]));
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-$result = curl_exec($ch);
-curl_close($ch);
+// Mise à jour directe du statut du lieu
+try {
+    // Vérifier si le lieu n'est pas déjà terminé pour éviter les doublons
+    $stmt = $pdo->prepare("
+        SELECT statut 
+        FROM parcours 
+        WHERE equipe_id = ? AND lieu_id = ?
+    ");
+    $stmt->execute([$equipe['id'], $lieu['id']]);
+    $parcours = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$parcours || $parcours['statut'] !== 'termine') {
+        // Mise à jour du parcours
+        $stmt = $pdo->prepare("
+            UPDATE parcours 
+            SET statut = 'termine', 
+                score_obtenu = ?, 
+                temps_fin = NOW(),
+                temps_ecoule = TIMESTAMPDIFF(SECOND, temps_debut, NOW())
+            WHERE equipe_id = ? AND lieu_id = ?
+        ");
+        
+        if ($stmt->execute([10, $equipe['id'], $lieu['id']])) {
+            // Vérifier si c'est la fin du parcours
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) as total_lieux, 
+                       SUM(CASE WHEN statut = 'termine' THEN 1 ELSE 0 END) as lieux_termines
+                FROM parcours 
+                WHERE equipe_id = ?
+            ");
+            $stmt->execute([$equipe['id']]);
+            $stats = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Si tous les lieux sont terminés
+            if ($stats['total_lieux'] > 0 && $stats['lieux_termines'] == $stats['total_lieux']) {
+                $stmt = $pdo->prepare("UPDATE parcours SET statut = 'parcours_termine' WHERE equipe_id = ?");
+                $stmt->execute([$equipe['id']]);
+            }
+        }
+    }
+} catch (Exception $e) {
+    error_log("Erreur mise à jour statut lieu: " . $e->getMessage());
+}
 
 // Récupération des statistiques du parcours complet
 $stmt = $pdo->prepare("
