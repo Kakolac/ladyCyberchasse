@@ -9,7 +9,7 @@ require_once '../../config/connexion.php';
 
 // Récupération des informations de l'équipe et du lieu actuel
 $team_name = $_SESSION['team_name'];
-$lieu_slug = 'direction';
+$lieu_slug = 'aaaaa';
 
 // Récupération de l'équipe et du lieu actuel
 $stmt = $pdo->prepare("

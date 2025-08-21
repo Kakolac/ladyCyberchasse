@@ -31,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $enigme_requise = isset($_POST['enigme_requise']) ? 1 : 0;
     $statut = $_POST['statut'];
     $delai_indice = (int)$_POST['delai_indice'];
+    $qrcodeObligatoire = isset($_POST['qrcodeObligatoire']) ? 1 : 0;
     
     // Avant l'insertion, affichons les valeurs finales
     $values = [
@@ -57,13 +58,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("
                 INSERT INTO lieux (
                     nom, slug, description, ordre, temps_limite, 
-                    enigme_requise, statut, delai_indice, type_lieu
+                    enigme_requise, statut, delai_indice, type_lieu, qrcodeObligatoire
                 ) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             
             if ($stmt->execute([$nom, $slug, $description, $ordre, $temps_limite,
-                $enigme_requise, $statut, $delai_indice, $type_lieu])) {
+                $enigme_requise, $statut, $delai_indice, $type_lieu, $qrcodeObligatoire])) {
                 $lieu_id = $pdo->lastInsertId();
                 
                 // 2. Sélection du template selon le type
@@ -246,6 +247,19 @@ try {
                                         </label>
                                         <small class="form-text text-muted d-block">
                                             Si coché, ce lieu doit être visité pour terminer le parcours
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <!-- Nouveau champ pour QR Code obligatoire -->
+                                <div class="col-md-6 mb-3 d-flex align-items-end">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="qrcodeObligatoire" name="qrcodeObligatoire">
+                                        <label class="form-check-label" for="qrcodeObligatoire">
+                                            QR Code obligatoire
+                                        </label>
+                                        <small class="form-text text-muted d-block">
+                                            Si coché, le QR code doit être scanné pour accéder au lieu
                                         </small>
                                     </div>
                                 </div>

@@ -203,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $delai_indice = (int)$_POST['delai_indice'];
             $statut = $_POST['statut'];
             $enigme_requise = isset($_POST['enigme_requise']) ? 1 : 0;
+            $qrcodeObligatoire = isset($_POST['qrcodeObligatoire']) ? 1 : 0;
             
             // Validation des données
             if (empty($nom) || $ordre < 1 || $temps_limite < 60 || $delai_indice < 1 || $delai_indice > 60) {
@@ -211,10 +212,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt = $pdo->prepare("
                     UPDATE lieux 
                     SET nom = ?, ordre = ?, description = ?, temps_limite = ?, 
-                        delai_indice = ?, statut = ?, enigme_requise = ?
+                        delai_indice = ?, statut = ?, enigme_requise = ?, qrcodeObligatoire = ?
                     WHERE id = ?
                 ");
-                if ($stmt->execute([$nom, $ordre, $description, $temps_limite, $delai_indice, $statut, $enigme_requise, $lieu_id])) {
+                if ($stmt->execute([$nom, $ordre, $description, $temps_limite, $delai_indice, $statut, $enigme_requise, $qrcodeObligatoire, $lieu_id])) {
                     $success_message = "Propriétés du lieu mises à jour avec succès !";
                 } else {
                     $error_message = "Erreur lors de la mise à jour des propriétés";
@@ -235,7 +236,8 @@ try {
             te.nom AS type_nom,
             te.template,
             COALESCE(l.delai_indice, 6) AS delai_indice,
-            l.type_lieu
+            l.type_lieu,
+            l.qrcodeObligatoire
         FROM lieux l
         LEFT JOIN enigmes e ON l.enigme_id = e.id
         LEFT JOIN types_enigmes te ON e.type_enigme_id = te.id
@@ -447,6 +449,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <?php if ($lieu['enigme_requise']): ?>
                                                 <span class="badge bg-warning">Obligatoire</span>
                                             <?php endif; ?>
+                                            <?php if ($lieu['qrcodeObligatoire']): ?>
+                                                <span class="badge bg-info">QR Code requis</span>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                     <div class="card-body">
@@ -502,7 +507,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                                     data-lieu-temps-limite="<?php echo $lieu['temps_limite']; ?>"
                                                     data-lieu-delai-indice="<?php echo $lieu['delai_indice']; ?>"
                                                     data-lieu-statut="<?php echo $lieu['statut']; ?>"
-                                                    data-lieu-enigme-requise="<?php echo $lieu['enigme_requise'] ? '1' : '0'; ?>">
+                                                    data-lieu-enigme-requise="<?php echo $lieu['enigme_requise'] ? '1' : '0'; ?>"
+                                                    data-lieu-qrcode-obligatoire="<?php echo $lieu['qrcodeObligatoire'] ? '1' : '0'; ?>">
                                                 <i class="fas fa-cog"></i> Gérer
                                             </button>
                                             
@@ -759,6 +765,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                         
+                        <!-- Nouveau champ pour QR Code obligatoire -->
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="qrcodeObligatoire" name="qrcodeObligatoire">
+                                <label class="form-check-label" for="qrcodeObligatoire">
+                                    QR Code obligatoire
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    Si coché, le QR code doit être scanné pour accéder au lieu
+                                </small>
+                            </div>
+                        </div>
+                        
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i>
                             <strong>Conseil :</strong> Vous pourrez affecter une énigme à ce lieu après sa création 
@@ -846,6 +865,19 @@ document.addEventListener('DOMContentLoaded', function() {
                                         Si coché, ce lieu doit être visité pour terminer le parcours
                                     </small>
                                 </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Nouveau champ pour QR Code obligatoire -->
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="qrcodeObligatoire" id="gestionQrCodeObligatoire">
+                                <label class="form-check-label" for="gestionQrCodeObligatoire">
+                                    QR Code obligatoire
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    Si coché, le QR code doit être scanné pour accéder au lieu
+                                </small>
                             </div>
                         </div>
                         
@@ -940,6 +972,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const lieuDelaiIndice = button.getAttribute('data-lieu-delai-indice');
                     const lieuStatut = button.getAttribute('data-lieu-statut');
                     const lieuEnigmeRequise = button.getAttribute('data-lieu-enigme-requise');
+                    const lieuQrCodeObligatoire = button.getAttribute('data-lieu-qrcode-obligatoire');
                     
                     // Mettre à jour le modal avec les données du lieu
                     document.getElementById('gestionLieuId').value = lieuId;
@@ -950,6 +983,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('gestionDelaiIndice').value = lieuDelaiIndice;
                     document.getElementById('gestionStatut').value = lieuStatut;
                     document.getElementById('gestionEnigmeRequise').checked = (lieuEnigmeRequise === '1');
+                    document.getElementById('gestionQrCodeObligatoire').checked = (lieuQrCodeObligatoire === '1');
                 });
             }
         });
