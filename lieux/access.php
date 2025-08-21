@@ -94,7 +94,7 @@ try {
         FROM parcours p
         JOIN equipes e ON p.equipe_id = e.id
         JOIN lieux l ON p.lieu_id = l.id
-        WHERE p.token_acces = ? AND l.slug = ? AND p.statut IN ('en_attente', 'en_cours')
+        WHERE p.token_acces = ? AND l.slug = ?
     ");
     
     $stmt->execute([$token, $lieu]);

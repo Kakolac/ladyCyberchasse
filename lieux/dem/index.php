@@ -2,7 +2,7 @@
 require_once '../../config/connexion.php';
 
 // Récupération du lieu
-$lieu_slug = 'direction';
+$lieu_slug = 'dem';
 
 // Récupération des informations du lieu
 $stmt = $pdo->prepare("SELECT nom, description FROM lieux WHERE slug = ?");

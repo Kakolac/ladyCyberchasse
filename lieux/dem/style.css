@@ -1,0 +1,134 @@
+/* Variables pour les couleurs */
+:root {
+    --primary-color: #2C3E50;
+    --secondary-color: #34495E;
+    --accent-color: #E74C3C;
+    --text-color: #2C3E50;
+    --light-bg: #F8F9FA;
+    --border-color: #E9ECEF;
+}
+
+/* Styles de base */
+body {
+    color: var(--text-color);
+    background-color: var(--light-bg);
+}
+
+/* Style de la carte principale */
+.card {
+    background: white;
+    border-radius: 15px;
+}
+
+.card-header {
+    background: white;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 15px 15px 0 0 !important;
+}
+
+.card-header h1 {
+    color: var(--primary-color);
+    font-size: 2.5em;
+    font-weight: 600;
+}
+
+.card-header h3 {
+    color: var(--secondary-color);
+    font-size: 1.5em;
+    font-weight: 400;
+}
+
+/* Boîte de message */
+.message-box {
+    background: var(--light-bg);
+    border-radius: 10px;
+    padding: 2rem;
+    margin: 2rem 0;
+}
+
+.message-box h5 {
+    color: var(--primary-color);
+    font-weight: 600;
+    font-size: 1.3em;
+    margin-bottom: 1rem;
+}
+
+.description-text {
+    color: var(--text-color);
+    font-size: 1.1em;
+    line-height: 1.6;
+    margin-bottom: 0;
+}
+
+/* Textes */
+.welcome-text {
+    color: var(--primary-color);
+    font-size: 1.4em;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+}
+
+.subtitle-text {
+    color: var(--secondary-color);
+    font-size: 1.1em;
+    font-weight: 400;
+    display: block;
+    margin-top: 0.5rem;
+}
+
+.scan-text {
+    color: var(--secondary-color);
+    font-size: 1.1em;
+    margin-bottom: 1.5rem;
+}
+
+/* Icônes */
+.accent-icon {
+    color: var(--accent-color);
+    margin-right: 0.5rem;
+}
+
+/* Bouton Scanner */
+.scan-button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    font-size: 1.2em;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.scan-button:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-2px);
+}
+
+.scan-button:active {
+    transform: translateY(1px);
+}
+
+/* Ombres et effets */
+.shadow-lg {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-header h1 {
+        font-size: 2em;
+    }
+    
+    .card-header h3 {
+        font-size: 1.2em;
+    }
+    
+    .welcome-text {
+        font-size: 1.2em;
+    }
+    
+    .card-body {
+        padding: 1.5rem !important;
+    }
+}
