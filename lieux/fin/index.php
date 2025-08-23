@@ -6,10 +6,10 @@ if (!isset($_SESSION['team_name'])) {
 }
 
 require_once '../../config/connexion.php';
-
+//templateLieuFin
 // Récupération des informations de l'équipe et du lieu
 $team_name = $_SESSION['team_name'];
-$lieu_slug = 'dem1';
+$lieu_slug = 'fin';
 
 // Récupération de l'équipe
 $stmt = $pdo->prepare("SELECT id FROM equipes WHERE nom = ?");

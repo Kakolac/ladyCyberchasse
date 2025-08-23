@@ -42,24 +42,25 @@ if (empty($lieu_slug) || !in_array($reponse_equipe, ['A', 'B', 'C', 'D'])) {
 
 try {
     // Récupération de la réponse correcte depuis la base de données
-    $stmt = $pdo->prepare("SELECT reponse_enigme FROM lieux WHERE slug = ? AND statut = 'actif'");
+    $stmt = $pdo->prepare("SELECT e.donnees FROM cyber_lieux l JOIN enigmes e ON l.enigme_id = e.id WHERE l.slug = ? AND l.statut = 'actif'");
     $stmt->execute([$lieu_slug]);
-    $lieu = $stmt->fetch(PDO::FETCH_ASSOC);
+    $enigme = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if (!$lieu) {
+    if (!$enigme) {
         http_response_code(404);
         echo json_encode(['error' => 'Lieu non trouvé']);
         exit();
     }
     
-    // Vérification de la réponse (sans jamais exposer la bonne réponse)
-    $correct = ($lieu['reponse_enigme'] === $reponse_equipe);
+    $donnees = json_decode($enigme['donnees'], true);
+    $reponse_correcte = $donnees['reponse_correcte'] ?? '';
+    $correct = ($reponse_correcte === $reponse_equipe);
     
     // Log de l'activité
     $stmt = $pdo->prepare("INSERT INTO logs_activite (equipe_id, lieu_id, action, details) VALUES (?, ?, ?, ?)");
     $stmt->execute([
         $_SESSION['team_id'] ?? null,
-        $lieu['id'] ?? null,
+        $enigme['id'] ?? null,
         'validation_enigme',
         json_encode([
             'lieu' => $lieu_slug,

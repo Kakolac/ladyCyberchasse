@@ -4,7 +4,7 @@ require_once '../config/connexion.php';
 
 // Si déjà connecté en tant qu'admin, rediriger vers admin.php
 if (isset($_SESSION['admin']) && $_SESSION['admin'] === true) {
-    header('Location: admin.php');
+    header('Location: admin2.php');
     exit();
 }
 
@@ -18,7 +18,7 @@ if ($_POST) {
     if ($username === 'admin' && $password === 'admin123') {
         $_SESSION['admin'] = true;
         $_SESSION['admin_username'] = $username;
-        header('Location: admin.php');
+        header('Location: admin2.php');
         exit();
     } else {
         $error = 'Identifiants incorrects';

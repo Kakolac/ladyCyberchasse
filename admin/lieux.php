@@ -25,15 +25,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'D' => trim($_POST['option_d'])
             ];
             
-            if (!empty($enigme_texte) && !empty($reponse_enigme)) {
-                $stmt = $pdo->prepare("UPDATE lieux SET reponse_enigme = ?, enigme_texte = ?, options_enigme = ? WHERE id = ?");
-                if ($stmt->execute([$reponse_enigme, $enigme_texte, json_encode($options), $lieu_id])) {
+            if (!empty($enigme_texte)) {
+                $stmt = $pdo->prepare("UPDATE cyber_lieux SET enigme_texte = ? WHERE id = ?");
+                if ($stmt->execute([$enigme_texte, $lieu_id])) {
                     $success_message = "Énigme mise à jour avec succès !";
                 } else {
                     $error_message = "Erreur lors de la mise à jour de l'énigme";
                 }
             } else {
-                $error_message = "Le texte de l'énigme et la réponse sont obligatoires";
+                $error_message = "Le texte de l'énigme est obligatoire";
             }
             break;
             

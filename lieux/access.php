@@ -247,7 +247,7 @@ try {
                                 <div class="card-body text-center">
                                     <div class="alert alert-warning">
                                         <h5> Vous devez d'abord visiter les lieux précédents</h5>
-                                        <p>Ce lieu est l'étape <strong><?php echo $parcours['ordre_visite']; ?></strong> de votre parcours.</p>
+                                        <p>Bienvenue sur ce lieu de votre parcours.</p>
                                         <p>Vous avez visité <strong><?php echo $lieux_termines; ?></strong> lieu(x) sur <?php echo $parcours['ordre_visite']; ?>.</p>
                                     </div>
                                     

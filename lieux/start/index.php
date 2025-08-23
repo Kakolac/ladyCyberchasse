@@ -4,12 +4,12 @@ if (!isset($_SESSION['team_name'])) {
     header('Location: ../../login.php');
     exit();
 }
-
+//templateLieuDemarrage
 require_once '../../config/connexion.php';
 
 // Récupération des informations de l'équipe et du lieu actuel
 $team_name = $_SESSION['team_name'];
-$lieu_slug = 'aaaaa';
+$lieu_slug = 'start';
 
 // Récupération de l'équipe et du lieu actuel
 $stmt = $pdo->prepare("

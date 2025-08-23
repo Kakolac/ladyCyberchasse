@@ -4,7 +4,7 @@ if (!isset($_SESSION['team_name'])) {
     header('Location: ../../login.php');
     exit();
 }
-
+//templateLieuDemarrage
 require_once '../../config/connexion.php';
 
 // Récupération des informations de l'équipe et du lieu actuel

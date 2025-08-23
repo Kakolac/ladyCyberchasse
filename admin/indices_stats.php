@@ -34,23 +34,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             break;
             
-        // NOUVELLE ACTION : Reset timer des indices
-        case 'reset_indice_timer':
+        // NOUVELLE ACTION : Reset timer des indices pour une équipe spécifique
+        case 'reset_indice_timer_equipe':
             $equipe_id = $_POST['equipe_id'];
             $equipe_nom = $_POST['equipe_nom'];
             
             try {
+                // Vérifier que l'équipe_id est valide
+                if (!$equipe_id || $equipe_id === 'null') {
+                    throw new Exception("ID d'équipe invalide");
+                }
+                
                 // Supprimer les consultations d'indices
                 $stmt = $pdo->prepare("DELETE FROM indices_consultes WHERE equipe_id = ?");
                 $stmt->execute([$equipe_id]);
                 
-                // Enregistrer le reset dans la table
-                $stmt = $pdo->prepare("INSERT INTO resets_timers (equipe_id, type_reset) VALUES (?, 'equipe')");
+                // Réinitialiser les timestamps dans la table parcours
+                $stmt = $pdo->prepare("
+                    UPDATE parcours 
+                    SET enigme_start_time = NOW(), 
+                        indice_start_time = DATE_ADD(NOW(), INTERVAL 6 MINUTE)
+                    WHERE equipe_id = ? AND statut = 'en_cours'
+                ");
                 $stmt->execute([$equipe_id]);
                 
                 $success_message = "Timer des indices reseté pour l'équipe '$equipe_nom'. L'équipe peut maintenant recommencer les énigmes avec un nouveau délai de 6 minutes.";
             } catch (Exception $e) {
                 $error_message = "Erreur lors du reset du timer: " . $e->getMessage();
+            }
+            break;
+            
+        // NOUVELLE ACTION : Reset timer des indices pour un lieu spécifique
+        case 'reset_indice_timer_lieu':
+            $lieu_id = $_POST['lieu_id'];
+            $lieu_nom = $_POST['lieu_nom'];
+            
+            try {
+                // Vérifier que le lieu_id est valide
+                if (!$lieu_id || $lieu_id === 'null') {
+                    throw new Exception("ID de lieu invalide");
+                }
+                
+                // Supprimer les consultations d'indices pour ce lieu
+                $stmt = $pdo->prepare("
+                    DELETE ic FROM indices_consultes ic
+                    JOIN parcours p ON ic.equipe_id = p.equipe_id
+                    WHERE p.lieu_id = ?
+                ");
+                $stmt->execute([$lieu_id]);
+                
+                // Réinitialiser les timestamps dans la table parcours pour ce lieu
+                $stmt = $pdo->prepare("
+                    UPDATE parcours 
+                    SET enigme_start_time = NOW(), 
+                        indice_start_time = DATE_ADD(NOW(), INTERVAL 6 MINUTE)
+                    WHERE lieu_id = ? AND statut = 'en_cours'
+                ");
+                $stmt->execute([$lieu_id]);
+                
+                $success_message = "Timer des indices reseté pour le lieu '$lieu_nom'. Toutes les équipes peuvent maintenant recommencer les énigmes de ce lieu avec un nouveau délai de 6 minutes.";
+            } catch (Exception $e) {
+                $error_message = "Erreur lors du reset du timer du lieu: " . $e->getMessage();
             }
             break;
             
@@ -61,13 +105,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt = $pdo->query("DELETE FROM indices_consultes");
                 $stmt->execute();
                 
-                // Enregistrer le reset global
-                $stmt = $pdo->prepare("INSERT INTO resets_timers (equipe_id, type_reset) VALUES (NULL, 'global')");
+                // Réinitialiser tous les timestamps dans la table parcours
+                $stmt = $pdo->prepare("
+                    UPDATE parcours 
+                    SET enigme_start_time = NOW(), 
+                        indice_start_time = DATE_ADD(NOW(), INTERVAL 6 MINUTE)
+                    WHERE statut = 'en_cours'
+                ");
                 $stmt->execute();
                 
                 $success_message = "Tous les timers des indices ont été resetés. Toutes les équipes peuvent maintenant recommencer les énigmes avec un nouveau délai de 6 minutes.";
             } catch (Exception $e) {
                 $error_message = "Erreur lors du reset global des timers: " . $e->getMessage();
+            }
+            break;
+            
+        // NOUVELLE ACTION : Modifier le délai d'indice d'un lieu
+        case 'modify_delai_indice':
+            $lieu_id = $_POST['lieu_id'];
+            $lieu_nom = $_POST['lieu_nom'];
+            $nouveau_delai = $_POST['nouveau_delai'];
+            
+            try {
+                // Modifier le délai dans la table lieux
+                $stmt = $pdo->prepare("UPDATE lieux SET delai_indice = ? WHERE id = ?");
+                $stmt->execute([$nouveau_delai, $lieu_id]);
+                
+                $success_message = "Délai d'indice modifié pour le lieu '$lieu_nom' : $nouveau_delai minutes.";
+            } catch (Exception $e) {
+                $error_message = "Erreur lors de la modification du délai: " . $e->getMessage();
             }
             break;
     }
@@ -91,10 +157,10 @@ try {
     
     // Indices par lieu
     $stmt = $pdo->query("
-        SELECT l.nom as lieu, COUNT(*) as nb_indices
+        SELECT l.id, l.nom as lieu, l.delai_indice, COUNT(*) as nb_indices
         FROM indices_consultes ic
         JOIN lieux l ON ic.lieu_id = l.id
-        GROUP BY l.id, l.nom
+        GROUP BY l.id, l.nom, l.delai_indice
         ORDER BY nb_indices DESC
     ");
     $indices_par_lieu = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -122,16 +188,52 @@ try {
     ");
     $consultations_recentes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // NOUVEAU : État actuel des timers par équipe et lieu (CORRIGÉ avec gestion des NULL)
+    $stmt = $pdo->query("
+        SELECT 
+            e.id as equipe_id,
+            e.nom as equipe,
+            l.id as lieu_id,
+            l.nom as lieu,
+            l.delai_indice,
+            p.enigme_start_time,
+            p.indice_start_time,
+            p.statut,
+            -- Gestion des NULL pour le temps écoulé
+            CASE 
+                WHEN p.enigme_start_time IS NULL THEN 0
+                ELSE TIMESTAMPDIFF(MINUTE, p.enigme_start_time, NOW())
+            END as minutes_ecoulees,
+            -- NOUVEAU : Calcul correct du statut de l'indice avec gestion des NULL
+            CASE 
+                WHEN p.enigme_start_time IS NULL THEN 'Non démarré'
+                WHEN TIMESTAMPDIFF(SECOND, p.enigme_start_time, NOW()) >= (l.delai_indice * 60) THEN 'Disponible'
+                ELSE 'En attente'
+            END as statut_indice,
+            -- NOUVEAU : Calcul correct du temps restant avec gestion des NULL
+            CASE 
+                WHEN p.enigme_start_time IS NULL THEN (l.delai_indice * 60)
+                WHEN TIMESTAMPDIFF(SECOND, p.enigme_start_time, NOW()) >= (l.delai_indice * 60) THEN 0
+                ELSE (l.delai_indice * 60) - TIMESTAMPDIFF(SECOND, p.enigme_start_time, NOW())
+            END as secondes_restantes
+        FROM parcours p
+        JOIN equipes e ON p.equipe_id = e.id
+        JOIN lieux l ON p.lieu_id = l.id
+        WHERE p.statut = 'en_cours'
+        ORDER BY e.nom, l.nom
+    ");
+    $etat_timers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
 } catch (Exception $e) {
     $error = "Erreur lors de la récupération des statistiques: " . $e->getMessage();
 }
 
 // Configuration pour le header
-$page_title = 'Statistiques des Indices - Administration Cyberchasse';
+$page_title = 'Administration des Indices et Timers - Cyberchasse';
 $current_page = 'indices_stats';
 $breadcrumb_items = [
     ['text' => 'Tableau de bord', 'url' => 'admin.php', 'active' => false],
-    ['text' => 'Statistiques des Indices', 'url' => 'indices_stats.php', 'active' => true]
+    ['text' => 'Administration des Indices', 'url' => 'indices_stats.php', 'active' => true]
 ];
 
 include 'includes/header.php';
@@ -161,13 +263,16 @@ include 'includes/header.php';
             .btn-close { filter: invert(1); }
             .table-responsive { border-radius: 10px; }
             .action-buttons { white-space: nowrap; }
+            .timer-status { font-weight: bold; }
+            .timer-available { color: #28a745; }
+            .timer-waiting { color: #ffc107; }
         </style>
 
         <!-- En-tête de la page -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
-                <h1><i class="fas fa-chart-bar"></i> Statistiques des Indices</h1>
-                <p class="text-muted">Analyse de l'utilisation des indices par les équipes</p>
+                <h1><i class="fas fa-clock"></i> Administration des Indices et Timers</h1>
+                <p class="text-muted">Gestion complète des timers d'indice et des consultations</p>
             </div>
             <div>
                 <!-- NOUVEAU BOUTON : Reset tous les timers -->
@@ -224,6 +329,116 @@ include 'includes/header.php';
             </div>
         </div>
 
+        <!-- NOUVEAU : État actuel des timers -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card admin-card stats-card">
+                    <div class="card-header bg-dark text-white">
+                        <h5><i class="fas fa-clock"></i> État Actuel des Timers d'Indice</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($etat_timers)): ?>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> Aucun timer d'indice actif.
+                            </div>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Équipe</th>
+                                            <th>Lieu</th>
+                                            <th>Délai Configuré</th>
+                                            <th>Début Énigme</th>
+                                            <th>Indice Disponible</th>
+                                            <th>Temps Écoulé</th>
+                                            <th>Statut Indice</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($etat_timers as $timer): ?>
+                                            <tr>
+                                                <td><strong><?php echo htmlspecialchars($timer['equipe']); ?></strong></td>
+                                                <td><?php echo htmlspecialchars($timer['lieu']); ?></td>
+                                                <td>
+                                                    <span class="badge bg-secondary">
+                                                        <?php echo $timer['delai_indice']; ?> min
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <small class="text-muted">
+                                                        <?php 
+                                                        if ($timer['enigme_start_time']) {
+                                                            echo date('H:i', strtotime($timer['enigme_start_time']));
+                                                        } else {
+                                                            echo '<span class="text-muted">Non défini</span>';
+                                                        }
+                                                        ?>
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    <small class="text-muted">
+                                                        <?php 
+                                                        if ($timer['indice_start_time']) {
+                                                            echo date('H:i', strtotime($timer['indice_start_time']));
+                                                        } else {
+                                                            echo '<span class="text-muted">Non défini</span>';
+                                                        }
+                                                        ?>
+                                                    </small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-info">
+                                                        <?php echo $timer['minutes_ecoulees']; ?> min
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="timer-status <?php echo $timer['statut_indice'] === 'Disponible' ? 'timer-available' : 'timer-waiting'; ?>">
+                                                        <?php 
+                                                        if ($timer['statut_indice'] === 'Non démarré') {
+                                                            echo '<span class="text-muted">Non démarré</span>';
+                                                        } elseif ($timer['statut_indice'] === 'En attente') {
+                                                            $secondes_restantes = $timer['secondes_restantes'];
+                                                            $minutes_restantes = floor($secondes_restantes / 60);
+                                                            $secondes = $secondes_restantes % 60;
+                                                            echo "Disponible dans {$minutes_restantes}m {$secondes}s";
+                                                        } else {
+                                                            echo htmlspecialchars($timer['statut_indice']);
+                                                        }
+                                                        ?>
+                                                    </span>
+                                                </td>
+                                                <td class="action-buttons">
+                                                    <!-- Bouton pour modifier le délai du lieu -->
+                                                    <button type="button" class="btn btn-primary btn-sm me-1" 
+                                                            onclick="modifierDelai(<?php echo $timer['lieu_id'] ?? 'null'; ?>, '<?php echo htmlspecialchars($timer['lieu']); ?>', <?php echo $timer['delai_indice']; ?>)"
+                                                            title="Modifier le délai d'indice pour ce lieu">
+                                                        <i class="fas fa-edit"></i> Délai
+                                                    </button>
+                                                    
+                                                    <!-- Bouton pour resetter le timer de cette équipe sur ce lieu -->
+                                                    <form method="POST" style="display: inline;" 
+                                                          onsubmit="return confirm('Resetter le timer pour <?php echo htmlspecialchars($timer['equipe']); ?> sur <?php echo htmlspecialchars($timer['lieu']); ?> ?')">
+                                                        <input type="hidden" name="action" value="reset_indice_timer_equipe">
+                                                        <input type="hidden" name="equipe_id" value="<?php echo $timer['equipe_id'] ?? 'null'; ?>">
+                                                        <input type="hidden" name="equipe_nom" value="<?php echo htmlspecialchars($timer['equipe']); ?>">
+                                                        <button type="submit" class="btn btn-warning btn-sm" title="Resetter le timer pour cette équipe sur ce lieu">
+                                                            <i class="fas fa-redo"></i> Reset
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Détail des statistiques -->
         <div class="row">
             <!-- Indices par équipe -->
@@ -262,7 +477,7 @@ include 'includes/header.php';
                                                     <!-- NOUVEAU BOUTON : Reset timer pour cette équipe -->
                                                     <form method="POST" style="display: inline;" 
                                                           onsubmit="return confirm('Êtes-vous sûr de vouloir resetter le timer des indices pour l\'équipe <?php echo htmlspecialchars($equipe['equipe']); ?> ? L\'équipe pourra recommencer les énigmes avec un nouveau délai de 6 minutes.')">
-                                                        <input type="hidden" name="action" value="reset_indice_timer">
+                                                        <input type="hidden" name="action" value="reset_indice_timer_equipe">
                                                         <input type="hidden" name="equipe_id" value="<?php echo $equipe['id']; ?>">
                                                         <input type="hidden" name="equipe_nom" value="<?php echo htmlspecialchars($equipe['equipe']); ?>">
                                                         <button type="submit" class="btn btn-info btn-sm me-1" title="Resetter le timer des indices pour cette équipe">
@@ -307,19 +522,45 @@ include 'includes/header.php';
                                     <thead>
                                         <tr>
                                             <th>Lieu</th>
+                                            <th>Délai Configuré</th>
                                             <th>Indices Consultés</th>
                                             <th>Pourcentage</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php foreach ($indices_par_lieu as $lieu): ?>
                                             <tr>
                                                 <td><strong><?php echo htmlspecialchars($lieu['lieu']); ?></strong></td>
+                                                <td>
+                                                    <span class="badge bg-secondary">
+                                                        <?php echo $lieu['delai_indice']; ?> min
+                                                    </span>
+                                                </td>
                                                 <td><?php echo $lieu['nb_indices']; ?></td>
                                                 <td>
                                                     <span class="badge bg-success">
                                                         <?php echo round(($lieu['nb_indices'] / $total_indices) * 100, 1); ?>%
                                                     </span>
+                                                </td>
+                                                <td class="action-buttons">
+                                                    <!-- Bouton pour modifier le délai -->
+                                                    <button type="button" class="btn btn-primary btn-sm me-1" 
+                                                            onclick="modifierDelai(<?php echo $lieu['id']; ?>, '<?php echo htmlspecialchars($lieu['lieu']); ?>', <?php echo $lieu['delai_indice']; ?>)"
+                                                            title="Modifier le délai d'indice pour ce lieu">
+                                                        <i class="fas fa-edit"></i> Délai
+                                                    </button>
+                                                    
+                                                    <!-- Bouton pour resetter tous les timers de ce lieu -->
+                                                    <form method="POST" style="display: inline;" 
+                                                          onsubmit="return confirm('Resetter tous les timers pour le lieu <?php echo htmlspecialchars($lieu['lieu']); ?> ?')">
+                                                        <input type="hidden" name="action" value="reset_indice_timer_lieu">
+                                                        <input type="hidden" name="lieu_id" value="<?php echo $lieu['id']; ?>">
+                                                        <input type="hidden" name="lieu_nom" value="<?php echo htmlspecialchars($lieu['lieu']); ?>">
+                                                        <button type="submit" class="btn btn-warning btn-sm" title="Resetter tous les timers pour ce lieu">
+                                                            <i class="fas fa-redo"></i> Reset Lieu
+                                                        </button>
+                                                    </form>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -433,5 +674,54 @@ include 'includes/header.php';
             </div>
         </div>
     </div>
+
+<!-- Modal pour modifier le délai d'indice -->
+<div class="modal fade" id="modalModifierDelai" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modifier le Délai d'Indice</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="action" value="modify_delai_indice">
+                    <input type="hidden" name="lieu_id" id="lieu_id_modal">
+                    <input type="hidden" name="lieu_nom" id="lieu_nom_modal">
+                    
+                    <div class="mb-3">
+                        <label for="lieu_nom_display" class="form-label">Lieu :</label>
+                        <input type="text" class="form-control" id="lieu_nom_display" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="nouveau_delai" class="form-label">Nouveau délai (en minutes) :</label>
+                        <input type="number" class="form-control" id="nouveau_delai" name="nouveau_delai" 
+                               min="1" max="60" required>
+                        <small class="text-muted">Délai en minutes avant que l'indice soit disponible</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Modifier le Délai</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Fonction pour ouvrir le modal de modification du délai
+function modifierDelai(lieuId, lieuNom, delaiActuel) {
+    document.getElementById('lieu_id_modal').value = lieuId;
+    document.getElementById('lieu_nom_modal').value = lieuNom;
+    document.getElementById('lieu_nom_display').value = lieuNom;
+    document.getElementById('nouveau_delai').value = delaiActuel;
+    
+    // Ouvrir le modal
+    const modal = new bootstrap.Modal(document.getElementById('modalModifierDelai'));
+    modal.show();
+}
+</script>
 
 <?php include 'includes/footer.php'; ?>

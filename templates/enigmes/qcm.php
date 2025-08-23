@@ -2,39 +2,58 @@
 
 
 <?php
+// Inclure les fonctions de timing centralisées
+include 'includes/timing-functions.php';
+
 // Récupération des données de l'énigme
 $stmt = $pdo->prepare("SELECT donnees FROM enigmes WHERE id = ?");
 $stmt->execute([$lieu['enigme_id']]);
 $enigme_data = $stmt->fetch(PDO::FETCH_ASSOC);
 $donnees = json_decode($enigme_data['donnees'], true);
 
-// AJOUTER LA LOGIQUE DE TIMING DEPUIS texte_libre.php
-// Vérifier si l'indice a déjà été consulté par cette équipe
-$indice_consulte = false;
-if (isset($_SESSION['team_name'])) {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) FROM indices_consultes ic
-        JOIN equipes e ON ic.equipe_id = e.id
-        JOIN lieux l ON ic.lieu_id = l.id
-        WHERE e.nom = ? AND l.slug = ? AND ic.enigme_id = ?
-    ");
-    $stmt->execute([$_SESSION['team_name'], $lieu_slug, $lieu['enigme_id']]);
-    $indice_consulte = $stmt->fetchColumn() > 0;
+// NOUVELLE LOGIQUE : Récupérer les timestamps depuis la BDD
+$stmt = $pdo->prepare("
+    SELECT 
+        enigme_start_time,
+        indice_start_time,
+        statut,
+        TIMESTAMPDIFF(SECOND, enigme_start_time, NOW()) as enigme_elapsed_seconds
+    FROM parcours 
+    WHERE equipe_id = ? AND lieu_id = ?
+");
+$stmt->execute([$equipe['id'], $lieu['id']]);
+$parcours_timing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($parcours_timing && $parcours_timing['enigme_start_time']) {
+    // Timestamps existants dans la BDD
+    $enigme_start_time = strtotime($parcours_timing['enigme_start_time']);
+    $indice_start_time = strtotime($parcours_timing['indice_start_time']);
+    $enigme_elapsed_time = $parcours_timing['enigme_elapsed_seconds'];
+} else {
+    // Fallback si pas de données (ne devrait plus arriver)
+    $enigme_start_time = time();
+    $indice_start_time = time() + 180;
+    $enigme_elapsed_time = 0;
 }
 
-// Variables pour le timing - NE PAS RECRÉER
-$enigme_session_key = "enigme_start_{$lieu['id']}_{$equipe['id']}";
-$indice_session_key = "indice_start_{$lieu['id']}_{$equipe['id']}";
-
-// RÉCUPÉRER les valeurs de la session, ne pas les recréer
-$enigme_start_time = $_SESSION[$enigme_session_key];
-$indice_start_time = $_SESSION[$indice_session_key];
-
-// Calculer les temps écoulés avec le délai dynamique
-$enigme_elapsed_time = time() - $enigme_start_time;
-$delai_indice_secondes = $lieu['delai_indice'] * 60; // Délai dynamique en secondes
+// Calculer la disponibilité de l'indice
+$delai_indice_secondes = ($lieu['delai_indice'] ?? 6) * 60;
 $indice_available = ($enigme_elapsed_time >= $delai_indice_secondes);
 $remaining_time = max(0, $delai_indice_secondes - $enigme_elapsed_time);
+
+// Vérifier si l'indice a déjà été consulté par cette équipe
+$indice_consulte = false;
+if (isset($equipe['id']) && isset($lieu['enigme_id'])) {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM indices_consultes WHERE equipe_id = ? AND enigme_id = ?");
+    $stmt->execute([$equipe['id'], $lieu['enigme_id']]);
+    $indice_consulte = ($stmt->fetchColumn() > 0);
+}
+
+// Debug dans la console
+echo "<!-- Debug PHP: enigme_start_time={$enigme_start_time}, indice_available=" . ($indice_available ? 'true' : 'false') . " -->";
+
+// INCLURE les fonctions centralisées
+include 'includes/enigme-functions.php';
 ?>
 
 <div class='enigme-content'>
@@ -99,9 +118,24 @@ $remaining_time = max(0, $delai_indice_secondes - $enigme_elapsed_time);
 </div>
 
 <script>
-// Variables PHP passées au JavaScript - UTILISER LES MÊMES QUE texte_libre.php
+// Variables PHP passées au JavaScript - MAINTENANT DEPUIS LA BDD
 let indiceConsulte = <?php echo $indice_consulte ? 'true' : 'false'; ?>;
 let indiceAvailable = <?php echo $indice_available ? 'true' : 'false'; ?>;
+
+// NOUVELLES VARIABLES DEPUIS LA BDD
+const enigmeStartTimestamp = <?php echo $enigme_start_time; ?>;
+const indiceStartTimestamp = <?php echo $indice_start_time; ?>;
+const delaiIndiceSecondes = <?php echo $delai_indice_secondes; ?>;
+
+// Debug dans la console
+console.log(' DEBUG TIMER INDICE QCM - Variables BDD:');
+console.log('  - enigme_start_time (BDD):', enigmeStartTimestamp);
+console.log('  - indice_start_time (BDD):', indiceStartTimestamp);
+console.log('  - indice_available:', indiceAvailable);
+console.log('  - indice_consulte:', indiceConsulte);
+console.log('  - remaining_time:', <?php echo $remaining_time; ?>);
+console.log('  - delai_indice_secondes:', delaiIndiceSecondes);
+console.log('  - current_time:', Math.floor(Date.now() / 1000));
 
 // Les variables globales sont maintenant définies par enigme-functions.php
 // LIEU_ID, EQUIPE_ID, ENIGME_ID sont disponibles
@@ -115,31 +149,49 @@ function validateAnswer() {
     validateQCMAnswer(reponseCorrecte, score);
 }
 
-// FONCTION startIndiceTimer - COPIER DEPUIS texte_libre.php
+// FONCTION startIndiceTimer - MAINTENANT AVEC LES TIMESTAMPS BDD
 function startIndiceTimer() {
+    console.log('⏰ startIndiceTimer() QCM appelée avec timestamps BDD');
+    console.log('  - indiceAvailable:', indiceAvailable);
+    console.log('  - indiceConsulte:', indiceConsulte);
+    
     if (indiceAvailable) {
+        console.log('  - Indice déjà disponible, sortie');
         return;
     }
     
     const indiceButton = document.getElementById('indice-button');
     if (!indiceButton) {
+        console.log('  - Bouton indice non trouvé, sortie');
         return;
     }
+    
+    console.log('  - Démarrage du timer d\'indice QCM avec BDD');
+    console.log('  - Temps restant initial:', <?php echo $remaining_time; ?>);
     
     // Synchroniser immédiatement l'affichage du bouton avec le temps PHP
     const countdownSpan = indiceButton.querySelector('#indice-countdown');
     if (countdownSpan) {
         countdownSpan.textContent = '<?php echo gmdate('i:s', $remaining_time); ?>';
+        console.log('  - Compte à rebours initial:', '<?php echo gmdate('i:s', $remaining_time); ?>');
     }
     
     // Mettre à jour le bouton toutes les secondes
     const countdown = setInterval(() => {
         const now = Math.floor(Date.now() / 1000);
-        const enigmeStart = <?php echo $enigme_start_time; ?>;
-        const remaining = <?php echo $delai_indice_secondes; ?> - (now - enigmeStart);
+        const remaining = delaiIndiceSecondes - (now - enigmeStartTimestamp);
+        
+        console.log('⏱️ Timer tick QCM BDD:', {
+            now: now,
+            enigmeStart: enigmeStartTimestamp,
+            delaiIndice: delaiIndiceSecondes,
+            remaining: remaining,
+            elapsed: now - enigmeStartTimestamp
+        });
         
         if (remaining <= 0) {
             // L'indice est maintenant disponible
+            console.log('🎉 Indice QCM maintenant disponible !');
             clearInterval(countdown);
             indiceAvailable = true;
             
@@ -175,72 +227,67 @@ function startIndiceTimer() {
             }
         }
     }, 1000);
+    
+    console.log('  - Timer d\'indice QCM BDD démarré avec intervalle de 1 seconde');
 }
 
-// FONCTION consulterIndice - COPIER DEPUIS texte_libre.php
+// FONCTION consulterIndice - CORRIGÉE
 function consulterIndice() {
     if (indiceConsulte) {
         return;
     }
     
-    // Créer et afficher l'indice dynamiquement
-    const indiceSection = document.querySelector('.indice-section');
-    if (indiceSection) {
-        // Supprimer l'ancien contenu de l'indice s'il existe
-        const oldIndiceContent = document.getElementById('indice-content');
-        if (oldIndiceContent) {
-            oldIndiceContent.remove();
-        }
-        
-        // Créer le nouveau contenu de l'indice
-        const indiceContent = document.createElement('div');
-        indiceContent.id = 'indice-content';
-        indiceContent.className = 'mt-2';
-        indiceContent.innerHTML = `
-            <div class="alert alert-info">
-                <i class="fas fa-lightbulb"></i>
-                <strong>💡 Indice :</strong> <?php echo htmlspecialchars($donnees['indice']); ?>
-            </div>
-        `;
-        
-        // Insérer l'indice après le bouton
-        const indiceButton = indiceSection.querySelector('button');
-        if (indiceButton) {
-            indiceButton.parentNode.insertBefore(indiceContent, indiceButton.nextSibling);
-        }
+    // Afficher l'indice AVANT d'envoyer la requête
+    const indiceContent = document.getElementById('indice-content');
+    if (indiceContent) {
+        indiceContent.style.display = 'block';
     }
     
-    // Mettre à jour le bouton
-    const indiceButton = document.querySelector('.indice-section button.btn-info');
-    if (indiceButton) {
-        indiceButton.innerHTML = '<i class="fas fa-check"></i> Indice consulté';
-        indiceButton.className = 'btn btn-secondary btn-sm';
-        indiceButton.disabled = true;
-        indiceButton.onclick = null;
-    }
-    
-    // Marquer comme consulté
-    indiceConsulte = true;
-    
-    // Enregistrer la consultation côté serveur
+    // Marquer comme consulté dans la base de données
     fetch('save_indice_consultation.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            lieu: LIEU_SLUG,
-            enigme_id: ENIGME_ID
+            lieu: '<?php echo $lieu_slug; ?>', // AJOUTER LE SLUG DU LIEU
+            equipe_id: <?php echo $equipe['id'] ?? 'null'; ?>,
+            enigme_id: <?php echo $lieu['enigme_id'] ?? 'null'; ?>
         })
     })
     .then(response => response.json())
     .then(data => {
-        if (!data.success) {
-            console.error('Erreur enregistrement indice:', data.error);
+        if (data.success) {
+            console.log('Consultation d\'indice enregistrée');
+            indiceConsulte = true;
+            
+            // Mettre à jour l'interface - GARDER L'INDICE VISIBLE
+            const indiceButton = document.querySelector('button[onclick="consulterIndice()"]');
+            if (indiceButton) {
+                indiceButton.innerHTML = '<i class="fas fa-check"></i> Indice consulté';
+                indiceButton.className = 'btn btn-secondary btn-sm';
+                indiceButton.disabled = true;
+                indiceButton.onclick = null;
+            }
+            
+            // S'assurer que l'indice reste visible
+            if (indiceContent) {
+                indiceContent.style.display = 'block';
+            }
+        } else {
+            console.error('Erreur enregistrement consultation:', data.error);
+            // En cas d'erreur, masquer l'indice
+            if (indiceContent) {
+                indiceContent.style.display = 'none';
+            }
         }
     })
     .catch(error => {
         console.error('Erreur:', error);
+        // En cas d'erreur, masquer l'indice
+        if (indiceContent) {
+            indiceContent.style.display = 'none';
+        }
     });
 }
 

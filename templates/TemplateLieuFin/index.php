@@ -6,7 +6,7 @@ if (!isset($_SESSION['team_name'])) {
 }
 
 require_once '../../config/connexion.php';
-
+//templateLieuFin
 // Récupération des informations de l'équipe et du lieu
 $team_name = $_SESSION['team_name'];
 $lieu_slug = 'direction';

@@ -1,14 +1,7 @@
 <!-- Outils d'administration -->
 <div class="col-12">
     <div class="card admin-card">
-        <div class="card-header bg-primary text-white">
-            <div class="d-flex justify-content-between align-items-center">
-                <h4><i class="fas fa-tools"></i> Outils d'Administration</h4>
-                <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#wizardModal">
-                    <i class="fas fa-magic"></i> Wizard
-                </button>
-            </div>
-        </div>
+
         <div class="card-body">
             <!-- Première rangée : Outils principaux -->
             <div class="row mb-4">
@@ -16,6 +9,20 @@
                     <h6 class="text-muted mb-3"><i class="fas fa-star"></i> Outils Principaux</h6>
                 </div>
                 
+                <!-- Gestion des lieux -->
+                <div class="col-md-3 mb-3">
+                    <div class="card tool-card h-100 border-warning">
+                        <div class="card-body text-center">
+                            <i class="fas fa-map-marker-alt fa-3x text-warning mb-3"></i>
+                            <h6>Gestion des Lieux</h6>
+                            <p class="text-muted small">Administrer les lieux et énigmes du jeu</p>
+                            <a href="modules/lieux/" class="btn btn-warning btn-sm w-100">
+                                <i class="fas fa-edit"></i> Administrer
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Gestion des équipes -->
                 <div class="col-md-3 mb-3">
                     <div class="card tool-card h-100 border-primary">
@@ -23,9 +30,9 @@
                             <i class="fas fa-users fa-3x text-primary mb-3"></i>
                             <h6>Gestion des Équipes</h6>
                             <p class="text-muted small">Créer, modifier et gérer les équipes participantes</p>
-                            <button class="btn btn-primary btn-sm w-100" onclick="openEquipesModal()">
+                            <a href="modules/equipes/" class="btn btn-primary btn-sm w-100">
                                 <i class="fas fa-cog"></i> Gérer
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -37,22 +44,8 @@
                             <i class="fas fa-route fa-3x text-success mb-3"></i>
                             <h6>Gestion des Parcours</h6>
                             <p class="text-muted small">Configurer et suivre les parcours des équipes</p>
-                            <a href="parcours.php" class="btn btn-success btn-sm w-100">
+                            <a href="modules/parcours/" class="btn btn-success btn-sm w-100">
                                 <i class="fas fa-cog"></i> Configurer
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Gestion des lieux -->
-                <div class="col-md-3 mb-3">
-                    <div class="card tool-card h-100 border-warning">
-                        <div class="card-body text-center">
-                            <i class="fas fa-map-marker-alt fa-3x text-warning mb-3"></i>
-                            <h6>Gestion des Lieux</h6>
-                            <p class="text-muted small">Administrer les lieux et énigmes du jeu</p>
-                            <a href="lieux.php" class="btn btn-warning btn-sm w-100">
-                                <i class="fas fa-edit"></i> Administrer
                             </a>
                         </div>
                     </div>
@@ -65,7 +58,7 @@
                             <i class="fas fa-qrcode fa-3x text-info mb-3"></i>
                             <h6>Génération QR Codes</h6>
                             <p class="text-muted small">Créer les QR codes pour les équipes</p>
-                            <a href="generate_qr.php" class="btn btn-info btn-sm w-100">
+                            <a href="modules/qr_codes/" class="btn btn-info btn-sm w-100">
                                 <i class="fas fa-qrcode"></i> Générer
                             </a>
                         </div>
