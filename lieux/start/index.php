@@ -4,22 +4,24 @@ if (!isset($_SESSION['team_name'])) {
     header('Location: ../../login.php');
     exit();
 }
-//templateLieuDemarrage
+
 require_once '../../config/connexion.php';
 
 // Récupération des informations de l'équipe et du lieu actuel
 $team_name = $_SESSION['team_name'];
+$equipe_id = $_SESSION['equipe_id'];
 $lieu_slug = 'start';
 
-// Récupération de l'équipe et du lieu actuel
+// Récupération du token actuel pour ce lieu
 $stmt = $pdo->prepare("
-    SELECT e.id as equipe_id, p.id as parcours_id, l.id as lieu_id 
-    FROM equipes e
-    JOIN parcours p ON e.id = p.equipe_id
-    JOIN lieux l ON p.lieu_id = l.id
-    WHERE e.nom = ? AND l.slug = ?
+    SELECT ct.*, l.nom as lieu_nom, l.slug as lieu_slug,
+           p.nom as parcours_nom, p.description as parcours_description
+    FROM cyber_token ct
+    JOIN cyber_lieux l ON ct.lieu_id = l.id
+    JOIN cyber_parcours p ON ct.parcours_id = p.id
+    WHERE ct.equipe_id = ? AND l.slug = ? AND ct.parcours_id = ?
 ");
-$stmt->execute([$team_name, $lieu_slug]);
+$stmt->execute([$equipe_id, $lieu_slug, $_SESSION['parcours_id']]);
 $current = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$current) {
@@ -27,47 +29,32 @@ if (!$current) {
     exit();
 }
 
-// Marquer le lieu actuel (direction) comme terminé
+// Marquer le lieu actuel comme terminé
 $stmt = $pdo->prepare("
-    UPDATE parcours 
-    SET statut = 'termine',
-        temps_debut = CURRENT_TIMESTAMP,
-        temps_fin = CURRENT_TIMESTAMP,
-        score_obtenu = 10
-    WHERE id = ?
+    UPDATE cyber_token 
+    SET statut = 'termine', 
+        created_at = CURRENT_TIMESTAMP
+    WHERE equipe_id = ? AND lieu_id = ? AND parcours_id = ?
 ");
-$stmt->execute([$current['parcours_id']]);
-
-// Appel à update_parcours_status.php pour le lieu actuel
-$ch = curl_init('../../update_parcours_status.php');
-curl_setopt($ch, CURLOPT_POST, 1);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-    'lieu' => $lieu_slug,
-    'team' => $team_name,
-    'success' => true,
-    'score' => 10
-]));
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-$result = curl_exec($ch);
-curl_close($ch);
+$stmt->execute([$equipe_id, $current['lieu_id'], $_SESSION['parcours_id']]);
 
 // Trouver le prochain lieu dans l'ordre
 $stmt = $pdo->prepare("
-    SELECT l.*, p.token_acces, p.ordre_visite
-    FROM lieux l
-    JOIN parcours p ON l.id = p.lieu_id
-    WHERE p.equipe_id = ? 
-    AND p.statut = 'en_attente'
-    ORDER BY p.ordre_visite ASC
+    SELECT l.*, ct.token_acces, ct.ordre_visite
+    FROM cyber_lieux l
+    JOIN cyber_token ct ON l.id = ct.lieu_id
+    WHERE ct.equipe_id = ? 
+    AND ct.parcours_id = ?
+    AND ct.statut = 'en_attente'
+    ORDER BY ct.ordre_visite ASC
     LIMIT 1
 ");
-$stmt->execute([$current['equipe_id']]);
+$stmt->execute([$equipe_id, $_SESSION['parcours_id']]);
 $prochain_lieu = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // Si pas de prochain lieu, rediriger vers la page de fin
 if (!$prochain_lieu) {
-    header('Location: ../TemplateLieuFin/');
+    header('Location: ../fin/');
     exit();
 }
 
@@ -109,28 +96,15 @@ include './header.php';
                             </span>
                         </p>
                         
-                        <?php if ($prochain_lieu['qrcodeObligatoire']): ?>
-                            <!-- Bouton QR Scanner -->
-                            <div class="mt-4">
-                                <p class="scan-text">
-                                    Scannez le QR code pour accéder au prochain lieu
-                                </p>
-                                <button id="qrScannerBtnMain" class="scan-button">
-                                    📷 Scanner QR
-                                </button>
-                            </div>
-                        <?php else: ?>
-                            <!-- Lien direct -->
-                            <div class="mt-4">
-                                <p class="scan-text">
-                                    Cliquez sur le bouton pour accéder au prochain lieu
-                                </p>
-                                <a href="../../lieux/access.php?token=<?php echo urlencode($prochain_lieu['token_acces']); ?>&lieu=<?php echo urlencode($prochain_lieu['slug']); ?>" 
-                                   class="btn btn-primary btn-lg">
-                                    🚪 Accéder au lieu
-                                </a>
-                            </div>
-                        <?php endif; ?>
+                        <!-- Bouton QR Scanner -->
+                        <div class="mt-4">
+                            <p class="scan-text">
+                                Scannez le QR code pour accéder au prochain lieu
+                            </p>
+                            <button id="qrScannerBtnMain" class="scan-button">
+                                📷 Scanner QR
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -138,7 +112,6 @@ include './header.php';
     </div>
 </div>
 
-<?php if ($prochain_lieu['qrcodeObligatoire']): ?>
 <script>
 // Connexion du bouton Scanner QR principal au composant existant
 document.addEventListener('DOMContentLoaded', function() {
@@ -157,6 +130,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-<?php endif; ?>
 
 <?php include './footer.php'; ?>
