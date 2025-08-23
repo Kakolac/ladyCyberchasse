@@ -159,17 +159,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if ($equipe_id > 0) {
                     try {
-                        $stmt = $pdo->prepare("
-                            DELETE FROM cyber_token 
-                            WHERE equipe_id = ? AND parcours_id = ?
-                        ");
+                        $pdo->beginTransaction();
                         
-                        if ($stmt->execute([$equipe_id, $parcours_id])) {
-                            $success_message = "✅ Tokens supprimés avec succès pour cette équipe !";
-                        } else {
-                            $error_message = "Erreur lors de la suppression des tokens";
-                        }
+                        // 1. Supprimer tous les tokens de cette équipe pour ce parcours
+                        $stmt = $pdo->prepare("DELETE FROM cyber_token WHERE equipe_id = ? AND parcours_id = ?");
+                        $stmt->execute([$equipe_id, $parcours_id]);
+                        $tokens_supprimes = $stmt->rowCount();
+                        
+                        // 2. Optionnel : Retirer aussi l'équipe du parcours
+                        // Décommentez les lignes suivantes si vous voulez cette fonctionnalité
+                        /*
+                        $stmt = $pdo->prepare("DELETE FROM cyber_equipes_parcours WHERE equipe_id = ? AND parcours_id = ?");
+                        $stmt->execute([$equipe_id, $parcours_id]);
+                        */
+                        
+                        $pdo->commit();
+                        $success_message = "✅ {$tokens_supprimes} token(s) supprimé(s) avec succès pour cette équipe !";
+                        
                     } catch (Exception $e) {
+                        $pdo->rollBack();
                         $error_message = "Erreur : " . $e->getMessage();
                     }
                 }
