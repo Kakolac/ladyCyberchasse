@@ -303,6 +303,9 @@ include '../../../admin/includes/header.php';
                             <a href="token_manager.php?id=<?php echo $parcours_id; ?>" class="btn btn-info btn-sm me-2">
                                 <i class="fas fa-key"></i> Gérer les Tokens
                             </a>
+                            <a href="print_qr_codes.php?id=<?php echo $parcours_id; ?>" class="btn btn-success btn-sm me-2">
+                                <i class="fas fa-print"></i> Imprimer QR Codes
+                            </a>
                             <a href="index.php" class="btn btn-light btn-sm">
                                 <i class="fas fa-arrow-left"></i> Retour aux parcours
                             </a>
@@ -750,7 +753,7 @@ include '../../../admin/includes/header.php';
                                                 
                                                 <!-- QR Code -->
                                                 <div class="qr-code-container mb-3">
-                                                    <img src="../qr_codes/generate_image.php?token=<?php echo urlencode($token['token_acces']); ?>&lieu=<?php echo urlencode($token['lieu_slug']); ?>&equipe=<?php echo urlencode($token['equipe_nom']); ?>&lieu_nom=<?php echo urlencode($token['lieu_nom']); ?>&ordre=<?php echo $token['lieu_ordre']; ?>&parcours=<?php echo urlencode($parcours['nom']); ?>" 
+                                                    <img src="../qr_codes/generate_image.php?token=<?php echo urlencode($token['token_acces']); ?>&lieu=<?php echo urlencode($token['lieu_slug']); ?>&equipe=<?php echo urlencode($token['equipe_nom']); ?>&lieu_nom=<?php echo htmlspecialchars($token['lieu_nom']); ?>&ordre=<?php echo $token['lieu_ordre']; ?>&parcours=<?php echo urlencode($parcours['nom']); ?>" 
                                                          alt="QR Code pour <?php echo htmlspecialchars($token['equipe_nom']); ?> - <?php echo htmlspecialchars($token['lieu_nom']); ?>"
                                                          style="width: 150px; height: 150px; border: 2px solid #e5e7eb; border-radius: 10px;">
                                                 </div>
@@ -763,9 +766,9 @@ include '../../../admin/includes/header.php';
                                                     </small>
                                                 </div>
                                             </div>
-                                            <div class="card-footer text-center">
+                                            <div class="card-footer text-center no-print">
                                                 <div class="btn-group btn-group-sm" role="group">
-                                                    <a href="../qr_codes/generate_image.php?token=<?php echo urlencode($token['token_acces']); ?>&lieu=<?php echo urlencode($token['lieu_slug']); ?>&equipe=<?php echo urlencode($token['equipe_nom']); ?>&lieu_nom=<?php echo urlencode($token['lieu_nom']); ?>&ordre=<?php echo $token['lieu_ordre']; ?>&parcours=<?php echo urlencode($parcours['nom']); ?>&download=1" 
+                                                    <a href="../qr_codes/generate_image.php?token=<?php echo urlencode($token['token_acces']); ?>&lieu=<?php echo urlencode($token['lieu_slug']); ?>&equipe=<?php echo urlencode($token['equipe_nom']); ?>&lieu_nom=<?php echo htmlspecialchars($token['lieu_nom']); ?>&ordre=<?php echo $token['lieu_ordre']; ?>&parcours=<?php echo urlencode($parcours['nom']); ?>&download=1" 
                                                        class="btn btn-success btn-sm" title="Télécharger">
                                                         <i class="fas fa-download"></i>
                                                     </a>
@@ -1081,11 +1084,313 @@ document.addEventListener('DOMContentLoaded', function() {
     border-radius: 3px;
 }
 
+## 🎯 **Design épuré style "Carte de Monopoly"**
+
+### 1. **En-tête coloré**
+- Bande colorée avec la couleur de l'équipe
+- Nom de l'équipe en blanc avec ombre
+- Texte centré et bien visible
+
+### 2. **QR code centré**
+- Taille optimale (200px)
+- Bordure simple grise
+- Centré dans la carte
+
+### 3. **Nom du lieu**
+- Sous le QR code
+- Police claire et lisible
+- Centré
+
+### 4. **Éléments masqués**
+- ❌ Statut du token
+- ❌ Ordre du lieu
+- ❌ Détails du token
+- ❌ Boutons d'action
+- ❌ Footer
+
+### 5. **Mise en page**
+- 3 colonnes pour optimiser l'espace
+- Cartes compactes et lisibles
+- Marges réduites (1cm)
+
+Maintenant vous aurez des cartes vraiment épurées avec juste :
+- 🎨 **Bande colorée** avec le nom de l'équipe
+- 📱 **QR code** bien visible
+-  **Nom du lieu** en dessous
+
+C'est exactement le style "carte de Monopoly" que vous vouliez ! 🃏
+
+/* Styles d'impression améliorés - SEULEMENT LES STYLES */
 @media print {
     .no-print { display: none !important; }
-    .qr-card { page-break-inside: avoid; }
-    .qr-code-container img { max-width: 200px !important; }
+    
+    .qr-card { 
+        page-break-inside: avoid !important;
+        margin-bottom: 2rem !important;
+        border: 2px solid #333 !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
+        background: white !important;
+        overflow: hidden !important;
+    }
+    
+    .card-header {
+        padding: 1rem !important;
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        color: white !important;
+        text-align: center !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5) !important;
+    }
+    
+    .card-body {
+        padding: 1.5rem !important;
+        background: white !important;
+        text-align: center !important;
+    }
+    
+    .card-footer {
+        display: none !important; /* Masquer complètement le footer */
+    }
+    
+    .card-title {
+        font-size: 1.1rem !important;
+        font-weight: bold !important;
+        color: #333 !important;
+        margin: 1rem 0 0.5rem 0 !important;
+        text-align: center !important;
+    }
+    
+    .text-muted {
+        display: none !important; /* Masquer l'ordre */
+    }
+    
+    .badge {
+        display: none !important; /* Masquer le statut */
+    }
+    
+    .token-details {
+        display: none !important; /* Masquer le token */
+    }
+    
+    .qr-code-container img { 
+        max-width: 200px !important; 
+        height: auto !important;
+        border: 2px solid #ddd !important;
+        border-radius: 8px !important;
+        display: block !important;
+        margin: 0 auto !important;
+    }
+    
+    /* Masquer tous les éléments non nécessaires */
+    .btn-group, .btn, .collapse, .card-header[data-bs-toggle] {
+        display: none !important;
+    }
+    
+    /* Optimisation de l'espace - 3 colonnes pour l'impression */
+    .col-md-6, .col-lg-4 {
+        width: 33.33% !important;
+        float: left !important;
+    }
+    
+    .row {
+        margin: 0 !important;
+    }
+    
+    /* Espacement entre les cartes */
+    .mb-4 {
+        margin-bottom: 1rem !important;
+    }
+    
+    /* Police d'impression */
+    body {
+        font-family: 'Arial', sans-serif !important;
+        line-height: 1.4 !important;
+        background: white !important;
+    }
+    
+    /* Marges de page */
+    @page {
+        margin: 1cm !important;
+    }
+    
+    /* FORCER l'affichage des éléments essentiels */
+    .card, .card-body, .qr-code-container {
+        display: block !important;
+        visibility: visible !important;
+    }
+    
+    /* S'assurer que les images sont visibles */
+    img {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    /* Style épuré des cartes */
+    .qr-card {
+        background: white !important;
+        border: 1px solid #ccc !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    }
 }
+
+## ✅ **Maintenant l'impression affiche TOUT :**
+
+- 🎨 **Bande colorée** avec le nom de l'équipe
+- 📱 **QR code** bien visible
+- ️ **Nom du lieu** 
+-  **Ordre du lieu**
+- 🏅 **Statut du token**
+- 📋 **Structure complète des cartes**
+
+## ❌ **Seulement masqué :**
+
+- Boutons d'action (télécharger, imprimer, copier)
+- Footer des cartes
+
+J'ai gardé presque tout visible maintenant, les QR codes devraient s'afficher ! 🎯
+
+/* Styles d'impression SIMPLIFIÉS - Garder l'essentiel */
+@media print {
+    /* Masquer UNIQUEMENT les boutons et éléments non nécessaires */
+    .no-print,
+    .btn-group, .btn {
+        display: none !important;
+    }
+    
+    /* Garder TOUT le reste visible */
+    .qr-card {
+        display: block !important;
+        page-break-inside: avoid !important;
+        margin-bottom: 2rem !important;
+        border: 2px solid #333 !important;
+        border-radius: 10px !important;
+        background: white !important;
+    }
+    
+    .card {
+        border: 2px solid #333 !important;
+        background: white !important;
+        box-shadow: none !important;
+    }
+    
+    .card-header {
+        display: block !important;
+        padding: 0.5rem !important;
+        margin-bottom: 1rem !important;
+        border-radius: 5px !important;
+        text-align: center !important;
+        color: white !important;
+        font-weight: bold !important;
+        font-size: 1.1rem !important;
+    }
+    
+    .card-body {
+        padding: 1rem !important;
+        background: white !important;
+        text-align: center !important;
+    }
+    
+    .card-footer {
+        display: none !important; /* Masquer seulement le footer */
+    }
+    
+    .qr-code-container {
+        display: block !important;
+        margin: 1rem 0 !important;
+    }
+    
+    .qr-code-container img { 
+        max-width: 200px !important; 
+        height: auto !important;
+        border: 2px solid #ddd !important;
+        border-radius: 8px !important;
+        display: block !important;
+        margin: 0 auto !important;
+    }
+    
+    .card-title {
+        font-size: 1.2rem !important;
+        font-weight: bold !important;
+        color: #333 !important;
+        margin: 1rem 0 0 0 !important;
+        text-align: center !important;
+    }
+    
+    /* Garder les badges de statut visibles */
+    .badge {
+        display: inline-block !important;
+        font-size: 0.9rem !important;
+        padding: 0.3rem 0.6rem !important;
+        border-radius: 15px !important;
+    }
+    
+    /* Garder les informations d'ordre */
+    .text-muted {
+        display: block !important;
+        color: #666 !important;
+        font-size: 0.9rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Mise en page simple */
+    .col-md-6, .col-lg-4 {
+        width: 33.33% !important;
+        float: left !important;
+    }
+    
+    .row {
+        margin: 0 !important;
+    }
+    
+    .mb-4 {
+        margin-bottom: 1rem !important;
+    }
+    
+    /* Fond blanc pur */
+    body {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Marges de page minimales */
+    @page {
+        margin: 0.5cm !important;
+    }
+    
+    /* S'assurer que les images sont visibles */
+    img {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+}
+
+## 🔧 **Corrections apportées pour les images**
+
+### 1. **Forçage de l'affichage des images**
+- `display: block !important` sur tous les éléments d'image
+- `visibility: visible !important` 
+- `opacity: 1 !important`
+
+### 2. **Règles spécifiques pour les QR codes**
+- Ciblage des images avec `img[src*="generate_image.php"]`
+- Conteneurs forcés visibles
+- Propriétés d'impression optimisées
+
+### 3. **Propriétés d'impression**
+- `-webkit-print-color-adjust: exact`
+- `color-adjust: exact`
+- `print-color-adjust: exact`
+
+### 4. **Vérification des conteneurs**
+- `.qr-code-container` forcé visible
+- Tous les enfants du conteneur forcés visibles
+
+Maintenant les QR codes devraient s'afficher correctement à l'impression ! 📱✨
 </style>
 
 <?php include '../../../admin/includes/footer.php'; ?>
