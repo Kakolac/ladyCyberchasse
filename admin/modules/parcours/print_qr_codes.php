@@ -186,65 +186,144 @@ include '../../../admin/includes/header.php';
         text-decoration: none;
     }
     
-    /* Styles d'impression */
+    /* Styles d'impression - OPTIMISÉ POUR 2 RANGÉES PAR PAGE */
     @media print {
+        /* Masquer UNIQUEMENT les éléments non nécessaires */
         .print-actions, .btn-back, .breadcrumb, .navbar, .sidebar {
             display: none !important;
         }
         
+        /* FORCER l'affichage des couleurs et dégradés */
         .print-header {
-            background: #333 !important;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
             color: white !important;
-            padding: 1rem !important;
-            margin-bottom: 1rem !important;
+            padding: 1rem !important; /* Réduit de 2rem à 1rem */
+            margin-bottom: 1rem !important; /* Réduit de 2rem à 1rem */
+            border-radius: 15px !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-after: always !important;
         }
         
         .print-header h1 {
-            font-size: 2rem !important;
+            font-size: 1.8rem !important; /* Réduit de 2.5rem à 1.8rem */
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3) !important;
+            margin: 0 !important;
+        }
+        
+        .print-header p {
+            font-size: 1rem !important; /* Réduit de 1.2rem à 1rem */
+            opacity: 0.9 !important;
+            margin: 0.2rem 0 0 0 !important; /* Réduit les marges */
         }
         
         .qr-card {
-            page-break-inside: avoid !important;
-            margin-bottom: 1rem !important;
             border: 2px solid #333 !important;
-            box-shadow: none !important;
+            border-radius: 10px !important; /* Réduit de 15px à 10px */
+            background: white !important;
+            padding: 0.8rem !important; /* Réduit de 1.5rem à 0.8rem */
+            text-align: center !important;
+            margin-bottom: 1rem !important; /* Réduit de 2rem à 1rem */
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important; /* Réduit l'ombre */
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            page-break-inside: avoid !important;
         }
         
         .equipe-header {
-            margin-bottom: 1rem !important;
+            padding: 0.6rem !important; /* Réduit de 1rem à 0.6rem */
+            border-radius: 8px !important; /* Réduit de 10px à 8px */
+            margin-bottom: 0.8rem !important; /* Réduit de 1.5rem à 0.8rem */
+            color: white !important;
+            font-weight: bold !important;
+            font-size: 1.1rem !important; /* Réduit de 1.3rem à 1.1rem */
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5) !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        
+        .qr-code {
+            margin: 0.8rem 0 !important; /* Réduit de 1.5rem à 0.8rem */
+            padding: 0.5rem !important; /* Réduit de 1rem à 0.5rem */
+            background: white !important;
+            border-radius: 8px !important; /* Réduit de 10px à 8px */
+            display: inline-block !important;
         }
         
         .qr-code img {
-            max-width: 200px !important;
+            border: 2px solid #ddd !important; /* Réduit de 3px à 2px */
+            border-radius: 8px !important; /* Réduit de 10px à 8px */
+            max-width: 150px !important; /* Réduit de 200px à 150px */
             height: auto !important;
         }
         
+        .lieu-info {
+            margin-top: 0.5rem !important; /* Réduit de 1rem à 0.5rem */
+        }
+        
         .lieu-nom {
-            font-size: 1.2rem !important;
+            font-size: 1.1rem !important; /* Réduit de 1.4rem à 1.1rem */
+            font-weight: bold !important;
+            color: #333 !important;
+            margin-bottom: 0.3rem !important; /* Réduit de 0.5rem à 0.3rem */
         }
         
         .lieu-ordre {
-            font-size: 0.9rem !important;
+            color: #666 !important;
+            font-size: 0.9rem !important; /* Réduit de 1rem à 0.9rem */
+            margin-bottom: 0.5rem !important; /* Réduit de 1rem à 0.5rem */
         }
         
-        /* Mise en page optimisée pour l'impression */
+        /* Mise en page optimisée pour 2 rangées par page */
         .col-md-6, .col-lg-4 {
-            width: 50% !important;
+            width: 33.33% !important;
             float: left !important;
         }
         
         .row {
             margin: 0 !important;
+            page-break-inside: avoid !important;
         }
         
+        .mb-4 {
+            margin-bottom: 1rem !important; /* Réduit de 2rem à 1rem */
+        }
+        
+        /* Sauts de page après 2 rangées (6 cartes) */
+        .col-lg-4:nth-child(6n) {
+            page-break-after: always !important;
+        }
+        
+        /* Marges de page réduites */
         @page {
-            margin: 1cm !important;
+            margin: 0.8cm !important; /* Réduit de 1cm à 0.8cm */
         }
         
+        /* Garder le fond blanc */
         body {
             background: white !important;
             margin: 0 !important;
             padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        
+        /* S'assurer que les images sont visibles */
+        img {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        /* Règles globales pour forcer les couleurs */
+        * {
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
     }
 </style>
