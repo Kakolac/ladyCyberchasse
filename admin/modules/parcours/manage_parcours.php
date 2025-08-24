@@ -666,6 +666,134 @@ include '../../../admin/includes/header.php';
             </div>
         </div>
     </div>
+
+    <!-- NOUVELLE SECTION : QR Codes du Parcours -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card admin-card">
+                <div class="card-header bg-info text-white" data-bs-toggle="collapse" data-bs-target="#qrCodesCollapse" aria-expanded="false" aria-controls="qrCodesCollapse" style="cursor: pointer;">
+                    <h6 class="mb-0">
+                        <i class="fas fa-qrcode"></i> QR Codes du Parcours
+                        <i class="fas fa-chevron-down float-end" id="qrCodesIcon"></i>
+                    </h6>
+                </div>
+                <div class="collapse" id="qrCodesCollapse">
+                    <div class="card-body">
+                        <?php
+                        // Récupération des tokens avec QR codes pour ce parcours
+                        try {
+                            $stmt = $pdo->prepare("
+                                SELECT ct.*, e.nom as equipe_nom, e.couleur as equipe_couleur, 
+                                       l.nom as lieu_nom, l.slug as lieu_slug, 
+                                       pl.ordre as lieu_ordre, pl.temps_limite_parcours
+                                FROM cyber_token ct
+                                JOIN cyber_equipes e ON ct.equipe_id = e.id
+                                JOIN cyber_lieux l ON ct.lieu_id = l.id
+                                JOIN cyber_parcours_lieux pl ON ct.parcours_id = pl.parcours_id AND ct.lieu_id = pl.lieu_id
+                                WHERE ct.parcours_id = ?
+                                ORDER BY ct.equipe_id, ct.ordre_visite
+                            ");
+                            $stmt->execute([$parcours_id]);
+                            $tokens_qr = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        } catch (Exception $e) {
+                            $tokens_qr = [];
+                        }
+                        ?>
+                        
+                        <?php if (empty($tokens_qr)): ?>
+                            <div class="alert alert-info">
+                                <h6>ℹ️ Aucun QR code généré</h6>
+                                <p>Vous devez d'abord générer des tokens pour ce parcours.</p>
+                                <a href="token_manager.php?id=<?php echo $parcours_id; ?>" class="btn btn-primary">
+                                    <i class="fas fa-key"></i> Gérer les Tokens
+                                </a>
+                            </div>
+                        <?php else: ?>
+                            <!-- Filtres par équipe -->
+                            <div class="mb-3">
+                                <label for="filterEquipe" class="form-label">Filtrer par équipe :</label>
+                                <select class="form-select" id="filterEquipe" style="max-width: 300px;">
+                                    <option value="">Toutes les équipes</option>
+                                    <?php
+                                    $equipes_uniques = [];
+                                    foreach ($tokens_qr as $token) {
+                                        if (!in_array($token['equipe_id'], $equipes_uniques)) {
+                                            $equipes_uniques[] = $token['equipe_id'];
+                                            echo '<option value="' . $token['equipe_id'] . '">' . htmlspecialchars($token['equipe_nom']) . '</option>';
+                                        }
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+                            
+                            <!-- Affichage des QR codes -->
+                            <div class="row" id="qrCodesContainer">
+                                <?php foreach ($tokens_qr as $token): ?>
+                                    <div class="col-md-6 col-lg-4 mb-4 qr-card" data-equipe="<?php echo $token['equipe_id']; ?>">
+                                        <div class="card h-100">
+                                            <div class="card-header text-center py-2" style="background-color: <?php echo $token['equipe_couleur']; ?>; color: white;">
+                                                <strong><?php echo htmlspecialchars($token['equipe_nom']); ?></strong>
+                                            </div>
+                                            <div class="card-body text-center">
+                                                <h6 class="card-title"><?php echo htmlspecialchars($token['lieu_nom']); ?></h6>
+                                                <p class="text-muted mb-2">Ordre: <?php echo $token['lieu_ordre']; ?></p>
+                                                
+                                                <!-- Statut du token -->
+                                                <div class="mb-3">
+                                                    <span class="badge bg-<?php 
+                                                        echo $token['statut'] === 'termine' ? 'success' : 
+                                                            ($token['statut'] === 'en_cours' ? 'info' : 'warning'); 
+                                                    ?>">
+                                                        <?php echo ucfirst($token['statut']); ?>
+                                                    </span>
+                                                </div>
+                                                
+                                                <!-- QR Code -->
+                                                <div class="qr-code-container mb-3">
+                                                    <img src="../qr_codes/generate_image.php?token=<?php echo urlencode($token['token_acces']); ?>&lieu=<?php echo urlencode($token['lieu_slug']); ?>&equipe=<?php echo urlencode($token['equipe_nom']); ?>&lieu_nom=<?php echo urlencode($token['lieu_nom']); ?>&ordre=<?php echo $token['lieu_ordre']; ?>&parcours=<?php echo urlencode($parcours['nom']); ?>" 
+                                                         alt="QR Code pour <?php echo htmlspecialchars($token['equipe_nom']); ?> - <?php echo htmlspecialchars($token['lieu_nom']); ?>"
+                                                         style="width: 150px; height: 150px; border: 2px solid #e5e7eb; border-radius: 10px;">
+                                                </div>
+                                                
+                                                <!-- Informations du token -->
+                                                <div class="token-details">
+                                                    <small class="text-muted">
+                                                        <strong>Token:</strong><br>
+                                                        <code class="text-primary"><?php echo substr($token['token_acces'], 0, 12) . '...'; ?></code>
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            <div class="card-footer text-center">
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <a href="../qr_codes/generate_image.php?token=<?php echo urlencode($token['token_acces']); ?>&lieu=<?php echo urlencode($token['lieu_slug']); ?>&equipe=<?php echo urlencode($token['equipe_nom']); ?>&lieu_nom=<?php echo urlencode($token['lieu_nom']); ?>&ordre=<?php echo $token['lieu_ordre']; ?>&parcours=<?php echo urlencode($parcours['nom']); ?>&download=1" 
+                                                       class="btn btn-success btn-sm" title="Télécharger">
+                                                        <i class="fas fa-download"></i>
+                                                    </a>
+                                                    <button class="btn btn-outline-primary btn-sm" onclick="printSingleQR('<?php echo $token['equipe_nom']; ?>', '<?php echo htmlspecialchars($token['lieu_nom']); ?>')" title="Imprimer">
+                                                        <i class="fas fa-print"></i>
+                                                    </button>
+                                                    <button class="btn btn-outline-info btn-sm" onclick="copyToken('<?php echo $token['token_acces']; ?>')" title="Copier le token">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            
+                            <!-- Bouton d'impression globale -->
+                            <div class="text-center mt-4">
+                                <button onclick="printAllQRCodes()" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-print"></i> Imprimer tous les QR codes
+                                </button>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Modal de changement de statut d'équipe -->
@@ -768,6 +896,101 @@ function removeEquipe(equipeParcoursId, equipeNom) {
     }
 }
 
+// Fonction de filtrage par équipe
+document.getElementById('filterEquipe').addEventListener('change', function() {
+    const selectedEquipe = this.value;
+    const qrCards = document.querySelectorAll('.qr-card');
+    
+    qrCards.forEach(card => {
+        if (selectedEquipe === '' || card.dataset.equipe === selectedEquipe) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+});
+
+// Fonction d'impression d'un QR code individuel
+function printSingleQR(equipeNom, lieuNom) {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>QR Code - ${equipeNom} - ${lieuNom}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 2rem; }
+                    .qr-container { max-width: 400px; margin: 0 auto; }
+                    .equipe-badge { 
+                        background: #007bff; 
+                        color: white; 
+                        padding: 0.5rem 1rem; 
+                        border-radius: 20px; 
+                        display: inline-block; 
+                        margin-bottom: 1rem; 
+                    }
+                    .qr-code { margin: 1rem 0; }
+                    .qr-code img { max-width: 200px; height: auto; }
+                    .token-info { 
+                        background: #f8f9fa; 
+                        padding: 1rem; 
+                        border-radius: 5px; 
+                        font-family: monospace; 
+                        margin: 1rem 0; 
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="qr-container">
+                    <div class="equipe-badge">
+                        <strong>${equipeNom}</strong>
+                    </div>
+                    <h3>${lieuNom}</h3>
+                    <div class="qr-code">
+                        <img src="../qr_codes/generate_image.php?token=${token}&lieu=${lieu}&equipe=${equipe}&lieu_nom=${lieuNom}&ordre=${ordre}&parcours=${parcours}" alt="QR Code">
+                    </div>
+                </div>
+            </body>
+        </html>
+    `);
+    
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+}
+
+// Fonction d'impression de tous les QR codes
+function printAllQRCodes() {
+    window.print();
+}
+
+// Fonction pour copier un token
+function copyToken(token) {
+    navigator.clipboard.writeText(token).then(function() {
+        // Afficher une notification de succès
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed top-0 end-0 p-3';
+        toast.style.zIndex = '9999';
+        toast.innerHTML = `
+            <div class="toast show" role="alert">
+                <div class="toast-header bg-success text-white">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong class="me-auto">Token copié !</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="card-body">
+                    Le token a été copié dans le presse-papiers.
+                </div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        // Supprimer la notification après 3 secondes
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 3000);
+    });
+}
+
 // Fonction pour gérer les icônes des sections collapsibles
 document.addEventListener('DOMContentLoaded', function() {
     // Gestion des icônes pour "Ajouter un Lieu"
@@ -817,8 +1040,52 @@ document.addEventListener('DOMContentLoaded', function() {
             equipesParcoursIcon.className = 'fas fa-chevron-down float-end';
         });
     }
+
+    // Gestion des icônes pour "QR Codes du Parcours"
+    const qrCodesCollapse = document.getElementById('qrCodesCollapse');
+    const qrCodesIcon = document.getElementById('qrCodesIcon');
+    if (qrCodesCollapse) {
+        qrCodesCollapse.addEventListener('show.bs.collapse', function() {
+            qrCodesIcon.className = 'fas fa-chevron-up float-end';
+        });
+        qrCodesCollapse.addEventListener('hide.bs.collapse', function() {
+            qrCodesIcon.className = 'fas fa-chevron-down float-end';
+        });
+    }
 });
 
 </script>
+
+<!-- Styles CSS pour les QR codes -->
+<style>
+.qr-card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.qr-card:hover {
+    transform: translateY(-5px);
+}
+
+.qr-code-container img {
+    transition: transform 0.2s ease-in-out;
+}
+
+.qr-code-container img:hover {
+    transform: scale(1.05);
+}
+
+.token-details code {
+    font-size: 0.8rem;
+    background: #f8f9fa;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+}
+
+@media print {
+    .no-print { display: none !important; }
+    .qr-card { page-break-inside: avoid; }
+    .qr-code-container img { max-width: 200px !important; }
+}
+</style>
 
 <?php include '../../../admin/includes/footer.php'; ?>
