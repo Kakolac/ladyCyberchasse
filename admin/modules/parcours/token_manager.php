@@ -182,6 +182,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 break;
+
+            case 'update_token_status':
+                // Mettre à jour le statut d'un token
+                $token_id = (int)$_POST['token_id'];
+                $nouveau_statut = $_POST['nouveau_statut'];
+                
+                if ($token_id > 0 && in_array($nouveau_statut, ['en_attente', 'en_cours', 'termine'])) {
+                    try {
+                        $stmt = $pdo->prepare("
+                            UPDATE cyber_token 
+                            SET statut = ? 
+                            WHERE id = ? AND parcours_id = ?
+                        ");
+                        
+                        if ($stmt->execute([$nouveau_statut, $token_id, $parcours_id])) {
+                            $success_message = "✅ Statut du token mis à jour avec succès !";
+                        } else {
+                            $error_message = "Erreur lors de la mise à jour du statut";
+                        }
+                    } catch (Exception $e) {
+                        $error_message = "Erreur : " . $e->getMessage();
+                    }
+                } else {
+                    $error_message = "Données invalides pour la mise à jour du statut";
+                }
+                break;
         }
     }
 }
@@ -440,12 +466,25 @@ include '../../../admin/includes/header.php';
                                                                 </button>
                                                             </td>
                                                             <td>
-                                                                <span class="badge bg-<?php 
-                                                                    echo $token['statut'] === 'termine' ? 'success' : 
-                                                                        ($token['statut'] === 'en_cours' ? 'info' : 'warning'); 
-                                                                ?>">
+                                                                <button type="button" class="btn btn-sm dropdown-toggle" 
+                                                                        data-bs-toggle="dropdown" 
+                                                                        style="background-color: <?php 
+                                                                            echo $token['statut'] === 'termine' ? '#28a745' : 
+                                                                                ($token['statut'] === 'en_cours' ? '#17a2b8' : '#ffc107'); 
+                                                                        ?>; color: <?php echo $token['statut'] === 'en_cours' ? 'white' : 'black'; ?>; border: none;">
                                                                     <?php echo ucfirst($token['statut']); ?>
-                                                                </span>
+                                                                </button>
+                                                                <ul class="dropdown-menu">
+                                                                    <li><a class="dropdown-item" href="#" onclick="changeTokenStatus(<?php echo $token['id']; ?>, 'en_attente', '<?php echo htmlspecialchars($token['lieu_nom']); ?>')">
+                                                                        <span class="badge bg-warning text-dark">En attente</span>
+                                                                    </a></li>
+                                                                    <li><a class="dropdown-item" href="#" onclick="changeTokenStatus(<?php echo $token['id']; ?>, 'en_cours', '<?php echo htmlspecialchars($token['lieu_nom']); ?>')">
+                                                                        <span class="badge bg-info">En cours</span>
+                                                                    </a></li>
+                                                                    <li><a class="dropdown-item" href="#" onclick="changeTokenStatus(<?php echo $token['id']; ?>, 'termine', '<?php echo htmlspecialchars($token['lieu_nom']); ?>')">
+                                                                        <span class="badge bg-success">Terminé</span>
+                                                                    </a></li>
+                                                                </ul>
                                                             </td>
                                                             <td>
                                                                 <div class="btn-group" role="group">
@@ -618,6 +657,21 @@ function deleteEquipeTokens(equipeId, equipeNom) {
 function generateEquipeTokens(equipeId) {
     // Ici vous pouvez implémenter la génération des tokens pour une équipe spécifique
     alert(`Génération des tokens pour l'équipe ID: ${equipeId}\n\nFonctionnalité à implémenter.`);
+}
+
+// Fonction pour changer le statut d'un token
+function changeTokenStatus(tokenId, nouveauStatut, lieuNom) {
+    if (confirm(`Êtes-vous sûr de vouloir changer le statut du token pour "${lieuNom}" en "${nouveauStatut}" ?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.innerHTML = `
+            <input type="hidden" name="action" value="update_token_status">
+            <input type="hidden" name="token_id" value="${tokenId}">
+            <input type="hidden" name="nouveau_statut" value="${nouveauStatut}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 </script>
 

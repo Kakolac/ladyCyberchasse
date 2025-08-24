@@ -554,20 +554,22 @@ include '../../../admin/includes/header.php';
                 <div class="collapse" id="equipesParcoursCollapse">
                     <div class="card-body">
                         <?php
-                        // Récupération des équipes assignées à ce parcours
+                        // Récupération des équipes assignées à ce parcours avec détails
                         try {
                             $stmt = $pdo->prepare("
                                 SELECT ep.*, e.nom, e.couleur, e.email_contact,
-                                       COUNT(pl.lieu_id) as nb_lieux_total,
-                                       COUNT(ct.id) as nb_lieux_termines
+                                       (SELECT COUNT(*) FROM cyber_parcours_lieux WHERE parcours_id = ep.parcours_id) as nb_lieux_total,
+                                       (SELECT COUNT(*) FROM cyber_token ct 
+                                        WHERE ct.equipe_id = ep.equipe_id 
+                                        AND ct.parcours_id = ep.parcours_id 
+                                        AND ct.statut = 'termine') as nb_lieux_termines,
+                                       (SELECT COUNT(*) FROM cyber_token ct 
+                                        WHERE ct.equipe_id = ep.equipe_id 
+                                        AND ct.parcours_id = ep.parcours_id 
+                                        AND ct.statut = 'en_attente') as nb_lieux_en_attente
                                 FROM cyber_equipes_parcours ep
                                 JOIN cyber_equipes e ON ep.equipe_id = e.id
-                                LEFT JOIN cyber_parcours_lieux pl ON ep.parcours_id = pl.parcours_id
-                                LEFT JOIN cyber_token ct ON ep.equipe_id = ct.equipe_id 
-                                    AND ct.statut = 'termine' 
-                                    AND ct.lieu_id IN (SELECT lieu_id FROM cyber_parcours_lieux WHERE parcours_id = ep.parcours_id)
                                 WHERE ep.parcours_id = ?
-                                GROUP BY ep.id, e.id
                                 ORDER BY ep.date_debut
                             ");
                             $stmt->execute([$parcours_id]);
@@ -627,7 +629,12 @@ include '../../../admin/includes/header.php';
                                                             <?php echo $equipe['nb_lieux_termines']; ?>/<?php echo $equipe['nb_lieux_total']; ?>
                                                         </div>
                                                     </div>
-                                                    <small class="text-muted"><?php echo $pourcentage; ?>% terminé</small>
+                                                    <small class="text-muted">
+    <?php echo $equipe['nb_lieux_termines']; ?>/<?php echo $equipe['nb_lieux_total']; ?> terminés
+    <?php if (isset($equipe['nb_lieux_en_attente']) && $equipe['nb_lieux_en_attente'] > 0): ?>
+        (<?php echo $equipe['nb_lieux_en_attente']; ?> en attente)
+    <?php endif; ?>
+</small>
                                                 </td>
                                                 <td>
                                                     <small>
