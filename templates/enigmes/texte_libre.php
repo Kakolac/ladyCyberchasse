@@ -1,51 +1,50 @@
 <?php
 // Vérification que l'énigme existe et est de type texte libre
-if (!isset($lieu['enigme_id']) || !isset($lieu['donnees'])) {
+if (!isset($current['enigme_id']) || !isset($current['donnees'])) {
     echo '<div class="alert alert-danger">Aucune énigme configurée pour ce lieu</div>';
     return;
 }
 
-$donnees = json_decode($lieu['donnees'], true);
+$donnees = json_decode($current['donnees'], true);
 if (json_last_error() !== JSON_ERROR_NONE || !isset($donnees['question']) || !isset($donnees['reponse_correcte'])) {
     echo '<div class="alert alert-danger">Données d\'énigme invalides</div>';
     return;
 }
 
-// NOUVELLE LOGIQUE : Récupérer les timestamps depuis la BDD
+// NOUVELLE LOGIQUE : Récupérer les timestamps depuis cyber_token
 $stmt = $pdo->prepare("
     SELECT 
-        enigme_start_time,
-        indice_start_time,
+        temps_debut,
         statut,
-        TIMESTAMPDIFF(SECOND, enigme_start_time, NOW()) as enigme_elapsed_seconds
-    FROM parcours 
-    WHERE equipe_id = ? AND lieu_id = ?
+        TIMESTAMPDIFF(SECOND, temps_debut, NOW()) as enigme_elapsed_seconds
+    FROM cyber_token 
+    WHERE equipe_id = ? AND lieu_id = ? AND parcours_id = ?
 ");
-$stmt->execute([$equipe['id'], $lieu['id']]);
-$parcours_timing = $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt->execute([$equipe_id_for_template, $lieu_id_for_template, $_SESSION['parcours_id']]);
+$token_timing = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if ($parcours_timing && $parcours_timing['enigme_start_time']) {
+if ($token_timing && $token_timing['temps_debut']) {
     // Timestamps existants dans la BDD
-    $enigme_start_time = strtotime($parcours_timing['enigme_start_time']);
-    $indice_start_time = strtotime($parcours_timing['indice_start_time']);
-    $enigme_elapsed_time = $parcours_timing['enigme_elapsed_seconds'];
+    $enigme_start_time = strtotime($token_timing['temps_debut']);
+    $indice_start_time = $enigme_start_time + (($current['delai_indice'] ?? 6) * 60);
+    $enigme_elapsed_time = $token_timing['enigme_elapsed_seconds'];
 } else {
-    // Fallback si pas de données (ne devrait plus arriver)
+    // Fallback si pas de données
     $enigme_start_time = time();
-    $indice_start_time = time() + 180;
+    $indice_start_time = time() + (($current['delai_indice'] ?? 6) * 60);
     $enigme_elapsed_time = 0;
 }
 
 // Calculer la disponibilité de l'indice
-$delai_indice_secondes = ($lieu['delai_indice'] ?? 6) * 60;
+$delai_indice_secondes = ($current['delai_indice'] ?? 6) * 60;
 $indice_available = ($enigme_elapsed_time >= $delai_indice_secondes);
 $remaining_time = max(0, $delai_indice_secondes - $enigme_elapsed_time);
 
 // Vérifier si l'indice a été consulté pour cette énigme
 $indice_consulte = false;
-if (isset($equipe['id']) && isset($lieu['enigme_id'])) {
+if (isset($equipe_id_for_template) && isset($enigme_id_for_template)) {
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM indices_consultes WHERE equipe_id = ? AND enigme_id = ?");
-    $stmt->execute([$equipe['id'], $lieu['enigme_id']]);
+    $stmt->execute([$equipe_id_for_template, $enigme_id_for_template]);
     $indice_consulte = ($stmt->fetchColumn() > 0);
 }
 
@@ -100,7 +99,7 @@ echo "<!-- Debug PHP: enigme_start_time={$enigme_start_time}, indice_available="
                 <div class="mt-2">
                     <small class="text-muted">
                         <i class="fas fa-info-circle"></i> 
-                        L'indice sera disponible après <?php echo $lieu['delai_indice']; ?> minutes de réflexion
+                        L'indice sera disponible après <?php echo $current['delai_indice']; ?> minutes de réflexion
                     </small>
                 </div>
             <?php endif; ?>
@@ -145,6 +144,15 @@ const delaiIndiceSecondes = <?php echo $delai_indice_secondes; ?>;
 // NOUVEAU : Utiliser le temps restant calculé côté serveur
 const remainingTimeServer = <?php echo $remaining_time; ?>;
 
+// Variables pour l'initialisation de l'énigme
+const enigmeConfig = {
+    lieu_slug: '<?php echo $lieu_slug_for_template; ?>',
+    team_name: '<?php echo $_SESSION['team_name']; ?>',
+    lieu_id: <?php echo $lieu_id_for_template ?? 'null'; ?>,
+    equipe_id: <?php echo $equipe_id_for_template ?? 'null'; ?>,
+    enigme_id: <?php echo $enigme_id_for_template ?? 'null'; ?>
+};
+
 // Debug dans la console
 console.log('🔍 DEBUG TIMER INDICE - Variables BDD:');
 console.log('  - enigme_start_time (BDD):', enigmeStartTimestamp);
@@ -154,6 +162,7 @@ console.log('  - indice_consulte:', indiceConsulte);
 console.log('  - remaining_time (serveur):', remainingTimeServer);
 console.log('  - delai_indice_secondes:', delaiIndiceSecondes);
 console.log('  - current_time:', Math.floor(Date.now() / 1000));
+console.log('  - enigmeConfig:', enigmeConfig);
 
 // Fonction de validation simplifiée - utilise la fonction centralisée
 function validateAnswer() {
@@ -191,9 +200,9 @@ function consulterIndice() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            lieu: '<?php echo $lieu_slug; ?>',
-            equipe_id: <?php echo $equipe['id'] ?? 'null'; ?>,
-            enigme_id: <?php echo $lieu['enigme_id'] ?? 'null'; ?>
+            lieu: '<?php echo $lieu_slug_for_template; ?>',
+            equipe_id: <?php echo $equipe_id_for_template; ?>,
+            enigme_id: <?php echo $enigme_id_for_template; ?>
         })
     })
     .then(response => response.json())
@@ -202,7 +211,7 @@ function consulterIndice() {
             console.log('Consultation d\'indice enregistrée');
             indiceConsulte = true;
             
-            // Mettre à jour l'interface - GARDER L'INDICE VISIBLE
+            // Mettre à jour l'interface
             const indiceButton = document.querySelector('button[onclick="consulterIndice()"]');
             if (indiceButton) {
                 indiceButton.innerHTML = '<i class="fas fa-check"></i> Indice consulté';
@@ -217,7 +226,6 @@ function consulterIndice() {
             }
         } else {
             console.error('Erreur enregistrement consultation:', data.error);
-            // En cas d'erreur, masquer l'indice
             if (indiceContent) {
                 indiceContent.style.display = 'none';
             }
@@ -225,7 +233,6 @@ function consulterIndice() {
     })
     .catch(error => {
         console.error('Erreur:', error);
-        // En cas d'erreur, masquer l'indice
         if (indiceContent) {
             indiceContent.style.display = 'none';
         }

@@ -6,40 +6,47 @@ if (!isset($_SESSION['team_name'])) {
 }
 
 require_once '../../config/connexion.php';
-//templateLieuFin
-// Récupération des informations de l'équipe et du lieu
+
+// Récupération des informations de l'équipe et du lieu actuel
 $team_name = $_SESSION['team_name'];
+$equipe_id = $_SESSION['equipe_id'];
 $lieu_slug = 'fin';
 
-// Récupération de l'équipe
-$stmt = $pdo->prepare("SELECT id FROM equipes WHERE nom = ?");
-$stmt->execute([$team_name]);
-$equipe = $stmt->fetch(PDO::FETCH_ASSOC);
+// Récupération du token actuel pour ce lieu
+$stmt = $pdo->prepare("
+    SELECT ct.*, l.nom as lieu_nom, l.slug as lieu_slug,
+           p.nom as parcours_nom, p.description as parcours_description
+    FROM cyber_token ct
+    JOIN cyber_lieux l ON ct.lieu_id = l.id
+    JOIN cyber_parcours p ON ct.parcours_id = p.id
+    WHERE ct.equipe_id = ? AND l.slug = ? AND ct.parcours_id = ?
+");
+$stmt->execute([$equipe_id, $lieu_slug, $_SESSION['parcours_id']]);
+$current = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$equipe) {
+if (!$current) {
     header('Location: ../../login.php');
     exit();
 }
 
-// Récupération du lieu
-$stmt = $pdo->prepare("SELECT id, nom, ordre, description FROM lieux WHERE slug = ?");
-$stmt->execute([$lieu_slug]);
-$lieu = $stmt->fetch(PDO::FETCH_ASSOC);
+// Marquer le lieu de fin comme terminé
+$stmt = $pdo->prepare("
+    UPDATE cyber_token 
+    SET statut = 'termine', 
+        created_at = CURRENT_TIMESTAMP
+    WHERE equipe_id = ? AND lieu_id = ? AND parcours_id = ?
+");
+$stmt->execute([$equipe_id, $current['lieu_id'], $_SESSION['parcours_id']]);
 
-if (!$lieu) {
-    header('Location: ../../accueil/');
-    exit();
-}
-
-// Récupération des statistiques du parcours complet
+// Récupération des statistiques du parcours complet avec la nouvelle structure
 $stmt = $pdo->prepare("
     SELECT 
-        (SELECT COUNT(*) FROM parcours WHERE equipe_id = ? AND statut = 'termine') as total_lieux_visites,
-        (SELECT COALESCE(SUM(score_obtenu), 0) FROM parcours WHERE equipe_id = ?) as score_total,
-        (SELECT COUNT(*) FROM parcours WHERE equipe_id = ? AND statut = 'termine') / 
-        (SELECT COUNT(*) FROM lieux WHERE enigme_requise = 1) * 100 as progression
+        (SELECT COUNT(*) FROM cyber_token WHERE equipe_id = ? AND parcours_id = ? AND statut = 'termine') as total_lieux_visites,
+        (SELECT COUNT(*) FROM cyber_token WHERE equipe_id = ? AND parcours_id = ?) as total_lieux_parcours,
+        (SELECT COUNT(*) FROM cyber_token WHERE equipe_id = ? AND parcours_id = ? AND statut = 'termine') / 
+        (SELECT COUNT(*) FROM cyber_token WHERE equipe_id = ? AND parcours_id = ?) * 100 as progression
 ");
-$stmt->execute([$equipe['id'], $equipe['id'], $equipe['id']]);
+$stmt->execute([$equipe_id, $_SESSION['parcours_id'], $equipe_id, $_SESSION['parcours_id'], $equipe_id, $_SESSION['parcours_id'], $equipe_id, $_SESSION['parcours_id']]);
 $stats = $stmt->fetch(PDO::FETCH_ASSOC);
 
 include './header.php';
@@ -82,9 +89,9 @@ include './header.php';
                         <div class="col-md-4 mb-3">
                             <div class="card bg-light border-0">
                                 <div class="card-body">
-                                    <i class="fas fa-star fa-2x text-warning mb-2"></i>
-                                    <h5 class="card-title"><?php echo $stats['score_total'] ?? 0; ?> pts</h5>
-                                    <p class="card-text text-muted">Score total</p>
+                                    <i class="fas fa-route fa-2x text-info mb-2"></i>
+                                    <h5 class="card-title"><?php echo $stats['total_lieux_parcours'] ?? 0; ?></h5>
+                                    <p class="card-text text-muted">Total du parcours</p>
                                 </div>
                             </div>
                         </div>
@@ -101,10 +108,10 @@ include './header.php';
 
                     <!-- Message de fin personnalisé -->
                     <div class="text-center mb-4">
-                        <?php if (!empty($lieu['description'])): ?>
+                        <?php if (!empty($current['parcours_description'])): ?>
                             <div class="alert alert-info border-0 shadow-sm">
                                 <h5><i class="fas fa-info-circle"></i> Message final</h5>
-                                <p class="mb-0"><?php echo htmlspecialchars($lieu['description']); ?></p>
+                                <p class="mb-0"><?php echo htmlspecialchars($current['parcours_description']); ?></p>
                             </div>
                         <?php endif; ?>
                     </div>

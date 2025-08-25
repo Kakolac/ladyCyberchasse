@@ -4,135 +4,95 @@
  */
 
 session_start();
+header('Content-Type: application/json');
+
+if (!isset($_SESSION['team_name']) || !isset($_SESSION['equipe_id']) || !isset($_SESSION['parcours_id'])) {
+    echo json_encode(['success' => false, 'error' => 'Session invalide']);
+    exit();
+}
+
 require_once 'config/connexion.php';
 
-// Vérification de la session
-if (!isset($_SESSION['team_name'])) {
-    http_response_code(401);
-    echo json_encode(['error' => 'Session non valide']);
-    exit();
-}
-
-// Vérification de la méthode HTTP
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Méthode non autorisée']);
-    exit();
-}
-
-// Récupération des données
-$input = json_decode(file_get_contents('php://input'), true);
-
-if (!isset($input['lieu']) || !isset($input['team']) || !isset($input['success'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Données manquantes']);
-    exit();
-}
-
-$lieu_slug = trim($input['lieu']);
-$team_name = trim($input['team']);
-$success = (bool)$input['success'];
-$score = isset($input['score']) ? (int)$input['score'] : 10;
-
 try {
-    // Récupération de l'équipe
-    $stmt = $pdo->prepare("SELECT id FROM equipes WHERE nom = ?");
-    $stmt->execute([$team_name]);
-    $equipe = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Récupération des données POST
+    $data = json_decode(file_get_contents('php://input'), true);
     
-    if (!$equipe) {
-        throw new Exception('Équipe non trouvée');
+    if (!$data) {
+        echo json_encode(['success' => false, 'error' => 'Données invalides']);
+        exit();
     }
     
-    // Récupération du lieu
-    $stmt = $pdo->prepare("SELECT id FROM lieux WHERE slug = ?");
+    $lieu_slug = $data['lieu'] ?? '';
+    $equipe_id = $_SESSION['equipe_id'];
+    $parcours_id = $_SESSION['parcours_id'];
+    
+    if (empty($lieu_slug)) {
+        echo json_encode(['success' => false, 'error' => 'Lieu manquant']);
+        exit();
+    }
+    
+    // Récupérer l'ID du lieu depuis cyber_lieux
+    $stmt = $pdo->prepare("SELECT id FROM cyber_lieux WHERE slug = ?");
     $stmt->execute([$lieu_slug]);
     $lieu = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$lieu) {
-        throw new Exception('Lieu non trouvé');
+        echo json_encode(['success' => false, 'error' => 'Lieu non trouvé']);
+        exit();
     }
     
-    if ($success) {
-        // Mise à jour du parcours : statut terminé, score obtenu, temps de fin
+    $lieu_id = $lieu['id'];
+    
+    // Mettre à jour le statut dans cyber_token
+    $stmt = $pdo->prepare("
+        UPDATE cyber_token 
+        SET statut = 'termine', 
+            score_obtenu = 10,
+            updated_at = NOW()
+        WHERE equipe_id = ? AND lieu_id = ? AND parcours_id = ?
+    ");
+    
+    $result = $stmt->execute([$equipe_id, $lieu_id, $parcours_id]);
+    
+    if ($result) {
+        // Vérifier si c'était le dernier lieu du parcours
         $stmt = $pdo->prepare("
-            UPDATE parcours 
-            SET statut = 'termine', 
-                score_obtenu = ?, 
-                temps_fin = NOW(),
-                temps_ecoule = TIMESTAMPDIFF(SECOND, temps_debut, NOW())
-            WHERE equipe_id = ? AND lieu_id = ?
+            SELECT COUNT(*) as total_lieux,
+                   COUNT(CASE WHEN statut = 'termine' THEN 1 END) as lieux_termines
+            FROM cyber_token 
+            WHERE parcours_id = ?
         ");
+        $stmt->execute([$parcours_id]);
+        $stats = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($stmt->execute([$score, $equipe['id'], $lieu['id']])) {
-            // 🎯 NOUVELLE FONCTIONNALITÉ : Détection automatique de fin de parcours
-            // Vérifier si c'est la fin du parcours pour cette équipe
+        $parcours_termine = ($stats['total_lieux'] > 0 && $stats['lieux_termines'] == $stats['total_lieux']);
+        
+        // Si le parcours est terminé, le marquer comme tel
+        if ($parcours_termine) {
             $stmt = $pdo->prepare("
-                SELECT COUNT(*) as total_lieux, 
-                       SUM(CASE WHEN statut = 'termine' THEN 1 ELSE 0 END) as lieux_termines
-                FROM parcours 
-                WHERE equipe_id = ?
+                UPDATE cyber_parcours 
+                SET statut = 'termine', 
+                    date_fin = NOW()
+                WHERE id = ?
             ");
-            $stmt->execute([$equipe['id']]);
-            $stats = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            // Si tous les lieux sont terminés, marquer le parcours comme terminé
-            if ($stats['total_lieux'] > 0 && $stats['lieux_termines'] == $stats['total_lieux']) {
-                // Mettre à jour tous les parcours de cette équipe avec le statut "parcours_termine"
-                $stmt = $pdo->prepare("UPDATE parcours SET statut = 'parcours_termine' WHERE equipe_id = ?");
-                $stmt->execute([$equipe['id']]);
-                
-                // Message spécial pour la fin de parcours
-                $response = [
-                    'success' => true,
-                    'message' => '🎉 Félicitations ! Vous avez terminé TOUT votre parcours !',
-                    'parcours_termine' => true,
-                    'score_total' => $stats['lieux_termines'] * $score
-                ];
-            } else {
-                // Message normal pour un lieu terminé
-                $response = [
-                    'success' => true,
-                    'message' => '🎯 Bravo ! Lieu terminé. Progression : ' . $stats['lieux_termines'] . '/' . $stats['total_lieux'] . ' lieux',
-                    'parcours_termine' => false,
-                    'progression' => [
-                        'termines' => $stats['lieux_termines'],
-                        'total' => $stats['total_lieux']
-                    ]
-                ];
-            }
-            
-            echo json_encode($response);
-        } else {
-            echo json_encode(['error' => 'Erreur lors de la mise à jour du parcours']);
+            $stmt->execute([$parcours_id]);
         }
-    } else {
-        // Échec de l'énigme - marquer comme échec
-        $stmt = $pdo->prepare("
-            UPDATE parcours 
-            SET statut = 'echec', 
-                temps_fin = NOW(),
-                temps_ecoule = TIMESTAMPDIFF(SECOND, temps_debut, NOW())
-            WHERE equipe_id = ? AND lieu_id = ?
-        ");
         
-        if ($stmt->execute([$equipe['id'], $lieu['id']])) {
-            echo json_encode([
-                'success' => true,
-                'message' => 'Statut d\'échec enregistré'
-            ]);
-        } else {
-            throw new Exception('Erreur lors de la mise à jour du statut d\'échec');
-        }
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Réponse validée avec succès',
+            'score' => 10,
+            'parcours_termine' => $parcours_termine
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Erreur lors de la mise à jour']);
     }
     
+} catch (PDOException $e) {
+    error_log("Erreur PDO dans update_parcours_status.php: " . $e->getMessage());
+    echo json_encode(['success' => false, 'error' => 'Erreur de base de données']);
 } catch (Exception $e) {
-    error_log("Erreur mise à jour parcours: " . $e->getMessage());
-    
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Erreur interne du serveur'
-    ]);
+    error_log("Erreur générale dans update_parcours_status.php: " . $e->getMessage());
+    echo json_encode(['success' => false, 'error' => 'Erreur interne du serveur']);
 }
 ?>

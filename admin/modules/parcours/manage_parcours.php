@@ -83,16 +83,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $ordre = (int)$lieu_data['ordre'];
                             $temps_limite = (int)$lieu_data['temps_limite'];
                             
+                            // 1. Mettre à jour l'ordre dans cyber_parcours_lieux
                             $stmt = $pdo->prepare("
                                 UPDATE cyber_parcours_lieux 
                                 SET ordre = ?, temps_limite_parcours = ? 
                                 WHERE parcours_id = ? AND lieu_id = ?
                             ");
                             $stmt->execute([$ordre, $temps_limite, $parcours_id, $lieu_id]);
+                            
+                            // 2. Mettre à jour l'ordre_visite dans cyber_token pour toutes les équipes
+                            $stmt = $pdo->prepare("
+                                UPDATE cyber_token 
+                                SET ordre_visite = ? 
+                                WHERE parcours_id = ? AND lieu_id = ?
+                            ");
+                            $stmt->execute([$ordre, $parcours_id, $lieu_id]);
                         }
                         
                         $pdo->commit();
-                        $success_message = "Ordre des lieux mis à jour avec succès !";
+                        $success_message = "✅ Ordre des lieux et tokens mis à jour avec succès !";
                     } catch (Exception $e) {
                         $pdo->rollBack();
                         $error_message = "Erreur lors de la mise à jour : " . $e->getMessage();
